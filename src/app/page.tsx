@@ -1,213 +1,288 @@
-"use client";
-
-import { useUser } from "@clerk/nextjs";
-
-import { api } from "@/trpc/react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ExpenseModal } from "@/components/expense-modal";
-import { FriendsModal } from "@/components/friends-modal";
-import { ModeToggle } from "@/components/theme-toggle";
-import { Plus, Users, UserPlus } from "lucide-react";
+import { 
+  Calculator, 
+  Users, 
+  CreditCard, 
+  PieChart, 
+  Smartphone, 
+  Globe, 
+  Zap, 
+  Shield,
+  Github,
+  CheckCircle,
+  ArrowRight
+} from "lucide-react";
 
-export default function Home() {
-  const { user } = useUser();
-
-  const utils = api.useUtils();
-  
-  const { data: expenses = [] } = api.expense.getAll.useQuery(
-    { userId: user?.id ?? "" },
-    { enabled: !!user?.id }
-  );
-
-  const { data: friendRequests = [] } = api.friends.getFriendRequests.useQuery(
-    { userId: user?.id ?? "" },
-    { enabled: !!user?.id }
-  );
-
-  const { data: friends = [] } = api.friends.getFriends.useQuery(
-    { userId: user?.id ?? "" },
-    { enabled: !!user?.id }
-  );
-
-  const deleteExpense = api.expense.delete.useMutation({
-    onSuccess: async () => {
-      await utils.expense.invalidate();
-    },
-  });
-
-  const totalExpenses = expenses.reduce(
-    (sum, expense) => sum + parseFloat(expense.amount),
-    0
-  );
-
-  if (!user) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
-        <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-[5rem]">
-            <span className="text-[hsl(280,100%,70%)]">Even</span>
-          </h1>
-          <p className="text-xl">Please sign in to track your expenses.</p>
-        </div>
-      </main>
-    );
-  }
-
+export default function LandingPage() {
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Expense Dashboard</h1>
-        <div className="flex items-center gap-4">
-          <ModeToggle />
-          <FriendsModal>
-            <Button variant="outline" className="gap-2">
-              <Users size={16} />
-              Friends
-              {friendRequests.length > 0 && (
-                <Badge variant="destructive" className="ml-1 px-1.5 py-0.5 text-xs">
-                  {friendRequests.length}
-                </Badge>
-              )}
-            </Button>
-          </FriendsModal>
-          <ExpenseModal>
-            <Button className="gap-2">
-              <Plus size={16} />
-              Add Expense
-            </Button>
-          </ExpenseModal>
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground">Total Expenses</p>
-            <p className="text-2xl font-bold">${totalExpenses.toFixed(2)}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Friends Summary */}
-      {(friends.length > 0 || friendRequests.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {friends.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users size={20} />
-                  Your Friends ({friends.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {friends.slice(0, 3).map((friendship) => {
-                    const friendId = friendship.userId === user?.id 
-                      ? friendship.friendUserId 
-                      : friendship.userId;
-                    
-                    return (
-                      <div key={friendship.id} className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-sm">{friendId}</span>
-                      </div>
-                    );
-                  })}
-                  {friends.length > 3 && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      +{friends.length - 3} more friends
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+    <main className="min-h-screen bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
+      {/* Hero Section */}
+      <section className="container mx-auto px-4 py-20 text-center">
+        <div className="max-w-4xl mx-auto space-y-8">
+          <Badge variant="secondary" className="bg-white/10 text-white border-white/20">
+            <Github className="w-4 h-4 mr-2" />
+            Open Source • Free Forever
+          </Badge>
           
-          {friendRequests.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserPlus size={20} />
-                  Pending Requests ({friendRequests.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {friendRequests.slice(0, 3).map((request) => (
-                    <div key={request.id} className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                      <span className="text-sm">{request.userId}</span>
-                    </div>
-                  ))}
-                  {friendRequests.length > 3 && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      +{friendRequests.length - 3} more requests
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Expenses</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {expenses.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                No expenses yet. Add your first expense!
-              </p>
-            ) : (
-              expenses.slice(0, 10).map((expense) => (
-                <div
-                  key={expense.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium">{expense.title}</h3>
-                      {expense.category && (
-                        <Badge variant="secondary" className="text-xs">
-                          {expense.category}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {expense.date}
-                    </p>
-                    {expense.description && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {expense.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <span className="font-semibold">
-                        {expense.currency} {parseFloat(expense.amount).toFixed(2)}
-                      </span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        deleteExpense.mutate({
-                          id: expense.id,
-                          userId: user.id,
-                        })
-                      }
-                      disabled={deleteExpense.isPending}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
+          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight">
+            <span className="text-[hsl(280,100%,70%)]">Even</span> the Score
+          </h1>
+          
+          <p className="text-xl md:text-2xl text-white/80 max-w-3xl mx-auto leading-relaxed">
+            The modern way to split expenses with friends, roommates, and groups. 
+            Track spending, settle debts, and keep everyone happy—all in one beautiful app.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link href="/app">
+              <Button size="lg" className="bg-[hsl(280,100%,70%)] hover:bg-[hsl(280,100%,60%)] text-white font-semibold px-8 py-4 text-lg">
+                Get Started Free
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </Link>
+            <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10 px-8 py-4 text-lg">
+              <Github className="w-5 h-5 mr-2" />
+              View on GitHub
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </section>
+
+      {/* Features Grid */}
+      <section className="container mx-auto px-4 py-20">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold mb-4">Everything You Need</h2>
+          <p className="text-xl text-white/70 max-w-2xl mx-auto">
+            Powerful features designed to make expense splitting effortless and transparent.
+          </p>
+        </div>
+        
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardContent className="p-6 text-center space-y-4">
+              <div className="w-12 h-12 mx-auto bg-[hsl(280,100%,70%)] rounded-full flex items-center justify-center">
+                <Calculator className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-white">Smart Splitting</h3>
+              <p className="text-white/70">
+                Automatically calculate who owes what with intelligent splitting algorithms. Equal splits, custom amounts, or percentage-based divisions.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardContent className="p-6 text-center space-y-4">
+              <div className="w-12 h-12 mx-auto bg-[hsl(280,100%,70%)] rounded-full flex items-center justify-center">
+                <Users className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-white">Group Management</h3>
+              <p className="text-white/70">
+                Create groups for trips, households, or projects. Add friends, track group expenses, and manage multiple groups effortlessly.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardContent className="p-6 text-center space-y-4">
+              <div className="w-12 h-12 mx-auto bg-[hsl(280,100%,70%)] rounded-full flex items-center justify-center">
+                <Globe className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-white">Multi-Currency</h3>
+              <p className="text-white/70">
+                Support for 150+ currencies with real-time exchange rates. Perfect for international trips and global teams.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardContent className="p-6 text-center space-y-4">
+              <div className="w-12 h-12 mx-auto bg-[hsl(280,100%,70%)] rounded-full flex items-center justify-center">
+                <PieChart className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-white">Expense Analytics</h3>
+              <p className="text-white/70">
+                Visualize spending patterns with beautiful charts and insights. Track categories, trends, and group spending habits.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardContent className="p-6 text-center space-y-4">
+              <div className="w-12 h-12 mx-auto bg-[hsl(280,100%,70%)] rounded-full flex items-center justify-center">
+                <Zap className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-white">Real-time Sync</h3>
+              <p className="text-white/70">
+                Instant updates across all devices. Add an expense and everyone in the group sees it immediately.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardContent className="p-6 text-center space-y-4">
+              <div className="w-12 h-12 mx-auto bg-[hsl(280,100%,70%)] rounded-full flex items-center justify-center">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-white">Secure & Private</h3>
+              <p className="text-white/70">
+                Bank-level security with end-to-end encryption. Your financial data stays private and secure.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="container mx-auto px-4 py-20">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold mb-4">How It Works</h2>
+          <p className="text-xl text-white/70 max-w-2xl mx-auto">
+            Three simple steps to start splitting expenses like a pro.
+          </p>
+        </div>
+        
+        <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 mx-auto bg-[hsl(280,100%,70%)] rounded-full flex items-center justify-center text-2xl font-bold">
+              1
+            </div>
+            <h3 className="text-xl font-semibold">Add Friends</h3>
+            <p className="text-white/70">
+              Create groups and invite friends, roommates, or travel companions to join your expense tracking.
+            </p>
+          </div>
+          
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 mx-auto bg-[hsl(280,100%,70%)] rounded-full flex items-center justify-center text-2xl font-bold">
+              2
+            </div>
+            <h3 className="text-xl font-semibold">Track Expenses</h3>
+            <p className="text-white/70">
+              Add expenses as they happen. Even automatically calculates who owes what and keeps running balances.
+            </p>
+          </div>
+          
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 mx-auto bg-[hsl(280,100%,70%)] rounded-full flex items-center justify-center text-2xl font-bold">
+              3
+            </div>
+            <h3 className="text-xl font-semibold">Settle Up</h3>
+            <p className="text-white/70">
+              See who owes whom and settle debts with built-in payment tracking and balance optimization.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Use Cases */}
+      <section className="container mx-auto px-4 py-20">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold mb-4">Perfect For</h2>
+        </div>
+        
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardContent className="p-6 text-center space-y-3">
+              <div className="text-4xl">🏠</div>
+              <h3 className="font-semibold text-white">Roommates</h3>
+              <p className="text-sm text-white/70">Split rent, utilities, groceries, and household expenses</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardContent className="p-6 text-center space-y-3">
+              <div className="text-4xl">✈️</div>
+              <h3 className="font-semibold text-white">Travel Groups</h3>
+              <p className="text-sm text-white/70">Track flights, hotels, meals, and activities on group trips</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardContent className="p-6 text-center space-y-3">
+              <div className="text-4xl">👥</div>
+              <h3 className="font-semibold text-white">Friend Groups</h3>
+              <p className="text-sm text-white/70">Dinners, events, shared subscriptions, and group activities</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardContent className="p-6 text-center space-y-3">
+              <div className="text-4xl">💼</div>
+              <h3 className="font-semibold text-white">Teams</h3>
+              <p className="text-sm text-white/70">Business lunches, office supplies, and project expenses</p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* Open Source */}
+      <section className="container mx-auto px-4 py-20">
+        <div className="max-w-4xl mx-auto text-center space-y-8">
+          <h2 className="text-4xl font-bold mb-4">Built in the Open</h2>
+          <p className="text-xl text-white/70 max-w-2xl mx-auto">
+            Even is completely open source. Contribute, customize, or self-host your own instance. 
+            Transparency and community-driven development at its core.
+          </p>
+          
+          <div className="grid md:grid-cols-3 gap-6 mt-12">
+            <div className="flex items-center space-x-3 justify-center">
+              <CheckCircle className="w-6 h-6 text-green-400" />
+              <span>100% Free Forever</span>
+            </div>
+            <div className="flex items-center space-x-3 justify-center">
+              <CheckCircle className="w-6 h-6 text-green-400" />
+              <span>Community Driven</span>
+            </div>
+            <div className="flex items-center space-x-3 justify-center">
+              <CheckCircle className="w-6 h-6 text-green-400" />
+              <span>Self-Hostable</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="container mx-auto px-4 py-20">
+        <div className="max-w-2xl mx-auto text-center space-y-8">
+          <h2 className="text-4xl font-bold">Ready to Get Even?</h2>
+          <p className="text-xl text-white/70">
+            Join thousands of users who have simplified their expense splitting with Even.
+          </p>
+          
+          <Link href="/app">
+            <Button size="lg" className="bg-[hsl(280,100%,70%)] hover:bg-[hsl(280,100%,60%)] text-white font-semibold px-12 py-6 text-xl">
+              Start Tracking Expenses
+              <ArrowRight className="w-6 h-6 ml-2" />
+            </Button>
+          </Link>
+          
+          <p className="text-sm text-white/50">
+            No credit card required • Sign up with Google, GitHub, or email
+          </p>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-white/10 py-12">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+            <div className="flex items-center space-x-2">
+              <span className="text-2xl font-bold text-[hsl(280,100%,70%)]">Even</span>
+              <span className="text-white/60">• Open Source Expense Splitting</span>
+            </div>
+            
+            <div className="flex items-center space-x-6 text-sm text-white/60">
+              <Link href="/app" className="hover:text-white transition-colors">App</Link>
+              <Link href="#" className="hover:text-white transition-colors">GitHub</Link>
+              <Link href="#" className="hover:text-white transition-colors">Docs</Link>
+              <Link href="#" className="hover:text-white transition-colors">Support</Link>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </main>
   );
 }
