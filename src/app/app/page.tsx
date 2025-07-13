@@ -49,7 +49,6 @@ export default function AppPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Expense Dashboard</h1>
         <div className="flex items-center gap-4">
-          <UserButton />
           <ModeToggle />
           <FriendsModal>
             <Button variant="outline" className="gap-2">
@@ -72,6 +71,7 @@ export default function AppPage() {
             <p className="text-sm text-muted-foreground">Total Expenses</p>
             <p className="text-2xl font-bold">${totalExpenses.toFixed(2)}</p>
           </div>
+          <UserButton />
         </div>
       </div>
 
@@ -184,7 +184,7 @@ export default function AppPage() {
                       onClick={() =>
                         deleteExpense.mutate({
                           id: expense.id,
-                          userId: user.id,
+                          userId: user?.id ?? "",
                         })
                       }
                       disabled={deleteExpense.isPending}
