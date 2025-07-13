@@ -43,7 +43,15 @@ export default function LandingPage() {
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </Link>
-            <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10 px-8 py-4 text-lg">
+            <Link href="/app">
+              <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10 px-8 py-4 text-lg">
+                Sign In
+              </Button>
+            </Link>
+          </div>
+          
+          <div className="flex justify-center">
+            <Button size="lg" variant="ghost" className="text-white/60 hover:text-white hover:bg-white/5 px-8 py-4 text-lg">
               <Github className="w-5 h-5 mr-2" />
               View on GitHub
             </Button>
