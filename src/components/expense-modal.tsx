@@ -14,13 +14,21 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ExpenseModalProps {
   children: React.ReactNode;
@@ -32,6 +40,7 @@ export function ExpenseModal({ children }: ExpenseModalProps) {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("USD");
+  const [currencyOpen, setCurrencyOpen] = useState(false);
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -66,29 +75,18 @@ export function ExpenseModal({ children }: ExpenseModalProps) {
     });
   };
 
-  // Get popular currencies for easier selection
-  const popularCurrencies = ["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "CNY", "INR"];
-  const popularCurrencyOptions = popularCurrencies.map(code => {
-    const currency = cc.code(code);
-    return {
-      code,
-      name: currency?.currency || code,
-      countries: currency?.countries || []
-    };
-  });
-
   // Get all currencies for comprehensive list
   const allCodes = cc.codes();
-  const allCurrencyOptions = allCodes
+  const currencyOptions = allCodes
     .map(code => {
       const currency = cc.code(code);
       return {
-        code,
-        name: currency?.currency || code,
-        countries: currency?.countries || []
+        value: code,
+        label: `${code} - ${currency?.currency ?? code}`,
+        searchText: `${code} ${currency?.currency ?? code} ${currency?.countries?.join(' ') ?? ''}`.toLowerCase()
       };
     })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -129,29 +127,49 @@ export function ExpenseModal({ children }: ExpenseModalProps) {
             </div>
             <div>
               <Label htmlFor="currency">Currency *</Label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select currency" />
-                </SelectTrigger>
-                <SelectContent>
-                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
-                    Popular
-                  </div>
-                  {popularCurrencyOptions.map((curr) => (
-                    <SelectItem key={curr.code} value={curr.code}>
-                      {curr.code} - {curr.name}
-                    </SelectItem>
-                  ))}
-                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">
-                    All Currencies
-                  </div>
-                  {allCurrencyOptions.map((curr) => (
-                    <SelectItem key={curr.code} value={curr.code}>
-                      {curr.code} - {curr.name} ({curr.countries.slice(0, 2).join(', ')}{curr.countries.length > 2 ? ', ...' : ''})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={currencyOpen} onOpenChange={setCurrencyOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={currencyOpen}
+                    className="w-full justify-between mt-1"
+                  >
+                    {currency
+                      ? currencyOptions.find((option) => option.value === currency)?.label
+                      : "Select currency..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[200px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search currency..." className="h-9" />
+                    <CommandList>
+                      <CommandEmpty>No currency found.</CommandEmpty>
+                      <CommandGroup>
+                        {currencyOptions.map((option) => (
+                          <CommandItem
+                            key={option.value}
+                            value={option.value}
+                            onSelect={(currentValue) => {
+                              setCurrency(currentValue === currency ? "" : currentValue);
+                              setCurrencyOpen(false);
+                            }}
+                          >
+                            {option.label}
+                            <Check
+                              className={cn(
+                                "ml-auto",
+                                currency === option.value ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
           

@@ -31,8 +31,28 @@ pnpm build
 pnpm lint
 
 # Run type checking
-pnpm type-check
+pnpm typecheck
+
+# Database commands
+pnpm db:generate  # Generate migrations
+pnpm db:push      # Push to database
 ```
+
+## Code Quality Requirements
+**IMPORTANT**: Always run these commands after making any code changes:
+
+```bash
+# Check for linting issues
+pnpm lint
+
+# Check for TypeScript errors
+pnpm typecheck
+```
+
+These commands must pass before considering any code change complete. This ensures:
+- Code follows project style guidelines
+- No TypeScript type errors exist
+- Code quality standards are maintained
 
 ## Environment Variables
 Configure the following in your `.env.local`:

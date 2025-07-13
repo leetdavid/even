@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ExpenseModal } from "@/components/expense-modal";
-import { Plus } from "lucide-react";
+import { FriendsModal } from "@/components/friends-modal";
+import { ModeToggle } from "@/components/theme-toggle";
+import { Plus, Users, UserPlus } from "lucide-react";
 
 export default function Home() {
   const { user } = useUser();
@@ -15,6 +17,16 @@ export default function Home() {
   const utils = api.useUtils();
   
   const { data: expenses = [] } = api.expense.getAll.useQuery(
+    { userId: user?.id ?? "" },
+    { enabled: !!user?.id }
+  );
+
+  const { data: friendRequests = [] } = api.friends.getFriendRequests.useQuery(
+    { userId: user?.id ?? "" },
+    { enabled: !!user?.id }
+  );
+
+  const { data: friends = [] } = api.friends.getFriends.useQuery(
     { userId: user?.id ?? "" },
     { enabled: !!user?.id }
   );
@@ -48,6 +60,18 @@ export default function Home() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Expense Dashboard</h1>
         <div className="flex items-center gap-4">
+          <ModeToggle />
+          <FriendsModal>
+            <Button variant="outline" className="gap-2">
+              <Users size={16} />
+              Friends
+              {friendRequests.length > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0.5 text-xs">
+                  {friendRequests.length}
+                </Badge>
+              )}
+            </Button>
+          </FriendsModal>
           <ExpenseModal>
             <Button className="gap-2">
               <Plus size={16} />
@@ -60,6 +84,69 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Friends Summary */}
+      {(friends.length > 0 || friendRequests.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {friends.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users size={20} />
+                  Your Friends ({friends.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {friends.slice(0, 3).map((friendship) => {
+                    const friendId = friendship.userId === user?.id 
+                      ? friendship.friendUserId 
+                      : friendship.userId;
+                    
+                    return (
+                      <div key={friendship.id} className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-sm">{friendId}</span>
+                      </div>
+                    );
+                  })}
+                  {friends.length > 3 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      +{friends.length - 3} more friends
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
+          {friendRequests.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserPlus size={20} />
+                  Pending Requests ({friendRequests.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {friendRequests.slice(0, 3).map((request) => (
+                    <div key={request.id} className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                      <span className="text-sm">{request.userId}</span>
+                    </div>
+                  ))}
+                  {friendRequests.length > 3 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      +{friendRequests.length - 3} more requests
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       <Card>
         <CardHeader>
