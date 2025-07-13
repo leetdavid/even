@@ -5,9 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Calculator, 
   Users, 
-  CreditCard, 
   PieChart, 
-  Smartphone, 
   Globe, 
   Zap, 
   Shield,

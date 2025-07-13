@@ -1,6 +1,6 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignedIn, SignedOut, RedirectToSignIn, UserButton } from "@clerk/nextjs";
 
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
@@ -42,24 +42,14 @@ export default function AppPage() {
     0
   );
 
-  if (!user) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
-        <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-[5rem]">
-            <span className="text-[hsl(280,100%,70%)]">Even</span>
-          </h1>
-          <p className="text-xl">Please sign in to access the dashboard.</p>
-        </div>
-      </main>
-    );
-  }
-
   return (
+    <>
+      <SignedIn>
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Expense Dashboard</h1>
         <div className="flex items-center gap-4">
+          <UserButton />
           <ModeToggle />
           <FriendsModal>
             <Button variant="outline" className="gap-2">
@@ -209,5 +199,10 @@ export default function AppPage() {
         </CardContent>
       </Card>
     </div>
+      </SignedIn>
+      <SignedOut>
+        <RedirectToSignIn />
+      </SignedOut>
+    </>
   );
 }
