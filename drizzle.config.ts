@@ -8,5 +8,5 @@ export default {
   dbCredentials: {
     url: env.DATABASE_URL,
   },
-  tablesFilter: ["splitwise-clone_*"],
+  tablesFilter: ["even_*"],
 } satisfies Config;
