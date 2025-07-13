@@ -8,6 +8,48 @@
       "when": 1752391765460,
       "tag": "0000_silly_pete_wisdom",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1752400810743,
+      "tag": "0001_regular_iron_monger",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1752401433155,
+      "tag": "0002_cool_nemesis",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1752404717115,
+      "tag": "0003_workable_the_spike",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1752408861289,
+      "tag": "0004_vengeful_supreme_intelligence",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1752418825127,
+      "tag": "0005_wise_talisman",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1752420788429,
+      "tag": "0006_glorious_mandroid",
+      "breakpoints": true
     }
   ]
 }
