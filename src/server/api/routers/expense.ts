@@ -2,7 +2,7 @@ import { z } from "zod";
 import { desc, eq, and } from "drizzle-orm";
 
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
-import { expenses, expenseSplits, expensePayments } from "@/server/db/schema";
+import { expenses, expenseSplits, expensePayments, expenseHistory, expenseComments } from "@/server/db/schema";
 
 const createExpenseSchema = z.object({
   title: z.string().min(1),
@@ -166,7 +166,204 @@ export const expenseRouter = createTRPCRouter({
         await ctx.db.insert(expensePayments).values(paymentRecords);
       }
 
+      // Create initial history record
+      await ctx.db.insert(expenseHistory).values({
+        expenseId: expense[0]!.id,
+        editedBy: input.userId,
+        changeType: "created",
+        changes: {
+          action: "created",
+          expense: {
+            title: input.title,
+            amount: input.amount,
+            currency: input.currency,
+            category: input.category,
+            description: input.description,
+          },
+        },
+      });
+
       return expense[0];
+    }),
+
+  update: publicProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        title: z.string().min(1).optional(),
+        amount: z.string().min(1).optional(),
+        currency: z.string().optional(),
+        category: z.string().optional(),
+        description: z.string().optional(),
+        date: z.string().optional(),
+        editReason: z.string().optional(),
+        editedBy: z.string(),
+        groupId: z.number().optional(),
+        splitMode: z.enum(["equal", "percentage", "custom"]).optional(),
+        paymentMode: z.enum(["single", "percentage", "custom"]).optional(),
+        splits: z
+          .array(
+            z.object({
+              userId: z.string(),
+              amount: z.string().optional(),
+              percentage: z.number().optional(),
+            }),
+          )
+          .optional(),
+        payments: z
+          .array(
+            z.object({
+              userId: z.string(),
+              amount: z.string().optional(),
+              percentage: z.number().optional(),
+            }),
+          )
+          .optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Get the current expense for history tracking
+      const currentExpense = await ctx.db.query.expenses.findFirst({
+        where: eq(expenses.id, input.id),
+        with: {
+          splits: true,
+          payments: true,
+          history: true,
+          comments: true,
+        },
+      });
+
+      if (!currentExpense) {
+        throw new Error("Expense not found");
+      }
+
+      const updateData: Record<string, unknown> = {};
+      const changes: Record<string, { before: unknown; after: unknown }> = {};
+
+      // Track changes for history
+      if (input.title !== undefined && input.title !== currentExpense.title) {
+        updateData.title = input.title;
+        changes.title = { before: currentExpense.title, after: input.title };
+      }
+      if (input.amount !== undefined && input.amount !== currentExpense.amount) {
+        updateData.amount = input.amount;
+        changes.amount = { before: currentExpense.amount, after: input.amount };
+      }
+      if (input.currency !== undefined && input.currency !== currentExpense.currency) {
+        updateData.currency = input.currency;
+        changes.currency = { before: currentExpense.currency, after: input.currency };
+      }
+      if (input.category !== undefined && input.category !== currentExpense.category) {
+        updateData.category = input.category;
+        changes.category = { before: currentExpense.category, after: input.category };
+      }
+      if (input.description !== undefined && input.description !== currentExpense.description) {
+        updateData.description = input.description;
+        changes.description = { before: currentExpense.description, after: input.description };
+      }
+      if (input.date !== undefined && input.date !== currentExpense.date) {
+        updateData.date = input.date;
+        changes.date = { before: currentExpense.date, after: input.date };
+      }
+      if (input.splitMode !== undefined && input.splitMode !== currentExpense.splitMode) {
+        updateData.splitMode = input.splitMode;
+        changes.splitMode = { before: currentExpense.splitMode, after: input.splitMode };
+      }
+      if (input.paymentMode !== undefined && input.paymentMode !== currentExpense.paymentMode) {
+        updateData.paymentMode = input.paymentMode;
+        changes.paymentMode = { before: currentExpense.paymentMode, after: input.paymentMode };
+      }
+
+      // Update the expense if there are changes
+      if (Object.keys(updateData).length > 0) {
+        await ctx.db
+          .update(expenses)
+          .set(updateData)
+          .where(eq(expenses.id, input.id));
+      }
+
+      // Update splits if provided
+      if (input.splits) {
+        // Delete existing splits
+        await ctx.db.delete(expenseSplits).where(eq(expenseSplits.expenseId, input.id));
+        
+        // Create new splits
+        if (input.splits.length > 0) {
+          const totalAmount = parseFloat(input.amount ?? currentExpense.amount);
+          const splitRecords = input.splits.map((split) => {
+            let splitAmount: string;
+
+            if ((input.splitMode ?? currentExpense.splitMode) === "equal") {
+              splitAmount = (totalAmount / input.splits!.length).toFixed(2);
+            } else if ((input.splitMode ?? currentExpense.splitMode) === "percentage" && split.percentage) {
+              splitAmount = ((totalAmount * split.percentage) / 100).toFixed(2);
+            } else if (split.amount) {
+              splitAmount = split.amount;
+            } else {
+              splitAmount = "0.00";
+            }
+
+            return {
+              expenseId: input.id,
+              userId: split.userId,
+              amount: splitAmount,
+              percentage: split.percentage?.toString(),
+            };
+          });
+
+          await ctx.db.insert(expenseSplits).values(splitRecords);
+        }
+        
+        changes.splits = { before: currentExpense.splits, after: input.splits };
+      }
+
+      // Update payments if provided
+      if (input.payments) {
+        // Delete existing payments
+        await ctx.db.delete(expensePayments).where(eq(expensePayments.expenseId, input.id));
+        
+        // Create new payments
+        if (input.payments.length > 0) {
+          const totalAmount = parseFloat(input.amount ?? currentExpense.amount);
+          const paymentRecords = input.payments.map((payment) => {
+            let paymentAmount: string;
+
+            if ((input.paymentMode ?? currentExpense.paymentMode) === "single") {
+              paymentAmount = input.amount ?? currentExpense.amount;
+            } else if ((input.paymentMode ?? currentExpense.paymentMode) === "percentage" && payment.percentage) {
+              paymentAmount = ((totalAmount * payment.percentage) / 100).toFixed(2);
+            } else if (payment.amount) {
+              paymentAmount = payment.amount;
+            } else {
+              paymentAmount = "0.00";
+            }
+
+            return {
+              expenseId: input.id,
+              userId: payment.userId,
+              amount: paymentAmount,
+              percentage: payment.percentage?.toString(),
+            };
+          });
+
+          await ctx.db.insert(expensePayments).values(paymentRecords);
+        }
+        
+        changes.payments = { before: currentExpense.payments, after: input.payments };
+      }
+
+      // Create history record if there were changes
+      if (Object.keys(changes).length > 0) {
+        await ctx.db.insert(expenseHistory).values({
+          expenseId: input.id,
+          editedBy: input.editedBy,
+          changeType: "updated",
+          changes,
+          editReason: input.editReason,
+        });
+      }
+
+      return { success: true };
     }),
 
   getAll: publicProcedure
@@ -179,6 +376,8 @@ export const expenseRouter = createTRPCRouter({
         with: {
           splits: true,
           payments: true,
+          history: true,
+          comments: true,
         },
       });
 
@@ -219,6 +418,8 @@ export const expenseRouter = createTRPCRouter({
         with: {
           splits: true,
           payments: true,
+          history: true,
+          comments: true,
         },
       });
     }),
@@ -251,12 +452,83 @@ export const expenseRouter = createTRPCRouter({
   delete: publicProcedure
     .input(z.object({ id: z.number(), userId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // First delete all expense splits for this expense
-      await ctx.db
-        .delete(expenseSplits)
-        .where(eq(expenseSplits.expenseId, input.id));
+      // Create deletion history record first
+      await ctx.db.insert(expenseHistory).values({
+        expenseId: input.id,
+        editedBy: input.userId,
+        changeType: "deleted",
+        changes: { action: "deleted" },
+      });
 
-      // Then delete the expense
+      // Delete all related records
+      await ctx.db.delete(expenseSplits).where(eq(expenseSplits.expenseId, input.id));
+      await ctx.db.delete(expensePayments).where(eq(expensePayments.expenseId, input.id));
+      await ctx.db.delete(expenseComments).where(eq(expenseComments.expenseId, input.id));
+      
+      // Finally delete the expense
       await ctx.db.delete(expenses).where(eq(expenses.id, input.id));
+    }),
+
+  getHistory: publicProcedure
+    .input(z.object({ expenseId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      return await ctx.db.query.expenseHistory.findMany({
+        where: eq(expenseHistory.expenseId, input.expenseId),
+        orderBy: [desc(expenseHistory.createdAt)],
+      });
+    }),
+
+  getComments: publicProcedure
+    .input(z.object({ expenseId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      return await ctx.db.query.expenseComments.findMany({
+        where: eq(expenseComments.expenseId, input.expenseId),
+        orderBy: [desc(expenseComments.createdAt)],
+      });
+    }),
+
+  addComment: publicProcedure
+    .input(
+      z.object({
+        expenseId: z.number(),
+        userId: z.string(),
+        comment: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const comment = await ctx.db
+        .insert(expenseComments)
+        .values({
+          expenseId: input.expenseId,
+          userId: input.userId,
+          comment: input.comment,
+        })
+        .returning();
+
+      return comment[0];
+    }),
+
+  getById: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const expense = await ctx.db.query.expenses.findFirst({
+        where: eq(expenses.id, input.id),
+        with: {
+          splits: true,
+          payments: true,
+          history: {
+            orderBy: [desc(expenseHistory.createdAt)],
+          },
+          comments: {
+            orderBy: [desc(expenseComments.createdAt)],
+          },
+        },
+      });
+
+      if (!expense) {
+        throw new Error("Expense not found");
+      }
+
+      return expense;
     }),
 });

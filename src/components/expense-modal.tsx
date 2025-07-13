@@ -111,9 +111,12 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
       try {
         // Parse the error message if it's JSON
         if (error.message.startsWith('[')) {
-          const parsed = JSON.parse(error.message);
-          if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.message) {
-            errorMessage = parsed[0].message;
+          const parsed = JSON.parse(error.message) as unknown[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const firstError = parsed[0] as { message?: string };
+            if (firstError?.message) {
+              errorMessage = firstError.message;
+            }
           }
         } else {
           errorMessage = error.message;
