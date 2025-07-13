@@ -5,6 +5,7 @@
 
 ## UI Framework
 - **shadcn/ui** - Reusable components built using Radix UI and Tailwind CSS
+- **next-themes** - Dark mode support with system detection
 
 ## Database
 - **Neon** - Serverless Postgres database
