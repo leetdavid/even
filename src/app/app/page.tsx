@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ExpenseModal } from "@/components/expense-modal";
+import { ExpenseEditModal } from "@/components/expense-edit-modal";
 import { FriendsModal } from "@/components/friends-modal";
 import { UserSettingsModal } from "@/components/user-settings-modal";
 import { GroupsSidebar } from "@/components/groups-sidebar";
@@ -21,11 +22,78 @@ import { GroupSettingsModal } from "@/components/group-settings-modal";
 import { ModeToggle } from "@/components/theme-toggle";
 import { Plus, Users, UserPlus, Settings } from "lucide-react";
 
+interface ExpenseItemProps {
+  expense: {
+    id: number;
+    title: string;
+    amount: string;
+    currency: string;
+    category: string | null;
+    description: string | null;
+    date: string;
+  };
+}
+
+function ExpenseItem({ expense }: ExpenseItemProps) {
+  const { user } = useUser();
+  const utils = api.useUtils();
+
+  const deleteExpense = api.expense.delete.useMutation({
+    onSuccess: async () => {
+      await utils.expense.invalidate();
+    },
+  });
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border p-3">
+      <ExpenseEditModal expenseId={expense.id}>
+        <div className="flex-1 cursor-pointer hover:bg-muted/50 transition-colors -m-3 p-3 rounded-lg">
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium">{expense.title}</h3>
+            {expense.category && (
+              <Badge variant="secondary" className="text-xs">
+                {expense.category}
+              </Badge>
+            )}
+          </div>
+          <p className="text-muted-foreground text-sm">
+            {expense.date}
+          </p>
+          {expense.description && (
+            <p className="text-muted-foreground mt-1 text-sm">
+              {expense.description}
+            </p>
+          )}
+        </div>
+      </ExpenseEditModal>
+      <div className="flex items-center gap-2">
+        <div className="text-right">
+          <span className="font-semibold">
+            {expense.currency}{" "}
+            {parseFloat(expense.amount).toFixed(2)}
+          </span>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            deleteExpense.mutate({
+              id: expense.id,
+              userId: user?.id ?? "",
+            })
+          }
+          disabled={deleteExpense.isPending}
+        >
+          Delete
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function AppPage() {
   const { user } = useUser();
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
-
-  const utils = api.useUtils();
 
   const { data: expenses = [] } = api.expense.getAll.useQuery(
     { userId: user?.id ?? "" },
@@ -42,8 +110,8 @@ export default function AppPage() {
     { enabled: !!user?.id },
   );
 
-  const selectedGroup = selectedGroupId 
-    ? userGroups.find(group => group.id === selectedGroupId)
+  const selectedGroup = selectedGroupId
+    ? userGroups.find((group) => group.id === selectedGroupId)
     : null;
 
   const { data: friendRequests = [] } = api.friends.getFriendRequests.useQuery(
@@ -53,13 +121,6 @@ export default function AppPage() {
     },
     { enabled: !!user?.id },
   );
-
-
-  const deleteExpense = api.expense.delete.useMutation({
-    onSuccess: async () => {
-      await utils.expense.invalidate();
-    },
-  });
 
   const displayedExpenses = selectedGroupId ? groupExpenses : expenses;
   const totalExpenses = displayedExpenses.reduce(
@@ -71,9 +132,9 @@ export default function AppPage() {
     <>
       <SignedIn>
         <div className="flex h-screen">
-          <GroupsSidebar 
-            selectedGroupId={selectedGroupId} 
-            onGroupSelect={setSelectedGroupId} 
+          <GroupsSidebar
+            selectedGroupId={selectedGroupId}
+            onGroupSelect={setSelectedGroupId}
           />
           <div className="flex-1 overflow-auto">
             <div className="container mx-auto space-y-6 p-6">
@@ -143,7 +204,10 @@ export default function AppPage() {
                       <CardContent>
                         <div className="space-y-2">
                           {friendRequests.slice(0, 3).map((request) => (
-                            <FriendsModal key={request.id} initialTab="invitations">
+                            <FriendsModal
+                              key={request.id}
+                              initialTab="invitations"
+                            >
                               <div className="flex cursor-pointer items-center gap-2 rounded-md p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
                                 <div className="h-2 w-2 rounded-full bg-orange-500"></div>
                                 <div className="flex-1">
@@ -197,57 +261,13 @@ export default function AppPage() {
                   <div className="space-y-3">
                     {displayedExpenses.length === 0 ? (
                       <p className="text-muted-foreground py-8 text-center">
-                        {selectedGroupId 
-                          ? "No expenses in this group yet." 
-                          : "No expenses yet. Add your first expense!"
-                        }
+                        {selectedGroupId
+                          ? "No expenses in this group yet."
+                          : "No expenses yet. Add your first expense!"}
                       </p>
                     ) : (
                       displayedExpenses.slice(0, 10).map((expense) => (
-                        <div
-                          key={expense.id}
-                          className="flex items-center justify-between rounded-lg border p-3"
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-medium">{expense.title}</h3>
-                              {expense.category && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {expense.category}
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-muted-foreground text-sm">
-                              {expense.date}
-                            </p>
-                            {expense.description && (
-                              <p className="text-muted-foreground mt-1 text-sm">
-                                {expense.description}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="text-right">
-                              <span className="font-semibold">
-                                {expense.currency}{" "}
-                                {parseFloat(expense.amount).toFixed(2)}
-                              </span>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                deleteExpense.mutate({
-                                  id: expense.id,
-                                  userId: user?.id ?? "",
-                                })
-                              }
-                              disabled={deleteExpense.isPending}
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </div>
+                        <ExpenseItem key={expense.id} expense={expense} />
                       ))
                     )}
                   </div>

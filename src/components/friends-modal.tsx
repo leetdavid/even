@@ -23,7 +23,10 @@ interface FriendsModalProps {
   initialTab?: "all" | "invitations" | "sent";
 }
 
-export function FriendsModal({ children, initialTab = "all" }: FriendsModalProps) {
+export function FriendsModal({
+  children,
+  initialTab = "all",
+}: FriendsModalProps) {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");

@@ -45,10 +45,10 @@ export const userRouter = createTRPCRouter({
         const profileDisplayName =
           user.firstName && user.lastName
             ? `${user.firstName} ${user.lastName}`
-            : user.firstName ??
+            : (user.firstName ??
               user.lastName ??
               user.emailAddresses[0]?.emailAddress ??
-              input.userId;
+              input.userId);
 
         return {
           id: user.id,
@@ -83,10 +83,10 @@ export const userRouter = createTRPCRouter({
         const displayName =
           user.firstName && user.lastName
             ? `${user.firstName} ${user.lastName}`
-            : user.firstName ??
+            : (user.firstName ??
               user.lastName ??
               user.emailAddresses[0]?.emailAddress ??
-              input.userId;
+              input.userId);
 
         return displayName;
       } catch (error) {

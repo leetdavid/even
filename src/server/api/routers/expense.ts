@@ -2,91 +2,99 @@ import { z } from "zod";
 import { desc, eq, and } from "drizzle-orm";
 
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
-import { expenses, expenseSplits, expensePayments, expenseHistory, expenseComments } from "@/server/db/schema";
+import {
+  expenses,
+  expenseSplits,
+  expensePayments,
+  expenseHistory,
+  expenseComments,
+} from "@/server/db/schema";
 
-const createExpenseSchema = z.object({
-  title: z.string().min(1),
-  amount: z.string().min(1),
-  currency: z.string().default("USD"),
-  category: z.string().optional(),
-  description: z.string().optional(),
-  date: z.string(),
-  userId: z.string(),
-  groupId: z.number().optional(),
-  splitMode: z.enum(["equal", "percentage", "custom"]).default("equal"),
-  paymentMode: z.enum(["single", "percentage", "custom"]).default("single"),
-  splits: z
-    .array(
-      z.object({
-        userId: z.string(),
-        amount: z.string().optional(),
-        percentage: z.number().optional(),
-      }),
-    )
-    .optional(),
-  payments: z
-    .array(
-      z.object({
-        userId: z.string(),
-        amount: z.string().optional(),
-        percentage: z.number().optional(),
-      }),
-    )
-    .optional(),
-}).refine(
-  (data) => {
-    // Validate splits add up to 100% or total amount
-    if (data.splits && data.splits.length > 0) {
-      const totalAmount = parseFloat(data.amount);
-      
-      if (data.splitMode === "percentage") {
-        const totalPercentage = data.splits.reduce(
-          (sum, split) => sum + (split.percentage ?? 0),
-          0,
-        );
-        if (Math.abs(totalPercentage - 100) > 0.01) {
-          return false;
-        }
-      } else if (data.splitMode === "custom") {
-        const totalSplitAmount = data.splits.reduce(
-          (sum, split) => sum + parseFloat(split.amount ?? "0"),
-          0,
-        );
-        if (Math.abs(totalSplitAmount - totalAmount) > 0.01) {
-          return false;
+const createExpenseSchema = z
+  .object({
+    title: z.string().min(1),
+    amount: z.string().min(1),
+    currency: z.string().default("USD"),
+    category: z.string().optional(),
+    description: z.string().optional(),
+    date: z.string(),
+    userId: z.string(),
+    groupId: z.number().optional(),
+    splitMode: z.enum(["equal", "percentage", "custom"]).default("equal"),
+    paymentMode: z.enum(["single", "percentage", "custom"]).default("single"),
+    splits: z
+      .array(
+        z.object({
+          userId: z.string(),
+          amount: z.string().optional(),
+          percentage: z.number().optional(),
+        }),
+      )
+      .optional(),
+    payments: z
+      .array(
+        z.object({
+          userId: z.string(),
+          amount: z.string().optional(),
+          percentage: z.number().optional(),
+        }),
+      )
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      // Validate splits add up to 100% or total amount
+      if (data.splits && data.splits.length > 0) {
+        const totalAmount = parseFloat(data.amount);
+
+        if (data.splitMode === "percentage") {
+          const totalPercentage = data.splits.reduce(
+            (sum, split) => sum + (split.percentage ?? 0),
+            0,
+          );
+          if (Math.abs(totalPercentage - 100) > 0.01) {
+            return false;
+          }
+        } else if (data.splitMode === "custom") {
+          const totalSplitAmount = data.splits.reduce(
+            (sum, split) => sum + parseFloat(split.amount ?? "0"),
+            0,
+          );
+          if (Math.abs(totalSplitAmount - totalAmount) > 0.01) {
+            return false;
+          }
         }
       }
-    }
 
-    // Validate payments add up to 100% or total amount
-    if (data.payments && data.payments.length > 0) {
-      const totalAmount = parseFloat(data.amount);
-      
-      if (data.paymentMode === "percentage") {
-        const totalPercentage = data.payments.reduce(
-          (sum, payment) => sum + (payment.percentage ?? 0),
-          0,
-        );
-        if (Math.abs(totalPercentage - 100) > 0.01) {
-          return false;
-        }
-      } else if (data.paymentMode === "custom") {
-        const totalPaymentAmount = data.payments.reduce(
-          (sum, payment) => sum + parseFloat(payment.amount ?? "0"),
-          0,
-        );
-        if (Math.abs(totalPaymentAmount - totalAmount) > 0.01) {
-          return false;
+      // Validate payments add up to 100% or total amount
+      if (data.payments && data.payments.length > 0) {
+        const totalAmount = parseFloat(data.amount);
+
+        if (data.paymentMode === "percentage") {
+          const totalPercentage = data.payments.reduce(
+            (sum, payment) => sum + (payment.percentage ?? 0),
+            0,
+          );
+          if (Math.abs(totalPercentage - 100) > 0.01) {
+            return false;
+          }
+        } else if (data.paymentMode === "custom") {
+          const totalPaymentAmount = data.payments.reduce(
+            (sum, payment) => sum + parseFloat(payment.amount ?? "0"),
+            0,
+          );
+          if (Math.abs(totalPaymentAmount - totalAmount) > 0.01) {
+            return false;
+          }
         }
       }
-    }
 
-    return true;
-  },
-  {
-    message: "Splits and payments must add up to the total amount or 100%",
-  },
-);
+      return true;
+    },
+    {
+      message: "Splits and payments must add up to the total amount or 100%",
+    },
+  );
 
 export const expenseRouter = createTRPCRouter({
   create: publicProcedure
@@ -148,7 +156,9 @@ export const expenseRouter = createTRPCRouter({
           if (input.paymentMode === "single") {
             paymentAmount = input.amount; // Full amount
           } else if (input.paymentMode === "percentage" && payment.percentage) {
-            paymentAmount = ((totalAmount * payment.percentage) / 100).toFixed(2);
+            paymentAmount = ((totalAmount * payment.percentage) / 100).toFixed(
+              2,
+            );
           } else if (payment.amount) {
             paymentAmount = payment.amount;
           } else {
@@ -245,33 +255,66 @@ export const expenseRouter = createTRPCRouter({
         updateData.title = input.title;
         changes.title = { before: currentExpense.title, after: input.title };
       }
-      if (input.amount !== undefined && input.amount !== currentExpense.amount) {
+      if (
+        input.amount !== undefined &&
+        input.amount !== currentExpense.amount
+      ) {
         updateData.amount = input.amount;
         changes.amount = { before: currentExpense.amount, after: input.amount };
       }
-      if (input.currency !== undefined && input.currency !== currentExpense.currency) {
+      if (
+        input.currency !== undefined &&
+        input.currency !== currentExpense.currency
+      ) {
         updateData.currency = input.currency;
-        changes.currency = { before: currentExpense.currency, after: input.currency };
+        changes.currency = {
+          before: currentExpense.currency,
+          after: input.currency,
+        };
       }
-      if (input.category !== undefined && input.category !== currentExpense.category) {
+      if (
+        input.category !== undefined &&
+        input.category !== currentExpense.category
+      ) {
         updateData.category = input.category;
-        changes.category = { before: currentExpense.category, after: input.category };
+        changes.category = {
+          before: currentExpense.category,
+          after: input.category,
+        };
       }
-      if (input.description !== undefined && input.description !== currentExpense.description) {
+      if (
+        input.description !== undefined &&
+        input.description !== currentExpense.description
+      ) {
         updateData.description = input.description;
-        changes.description = { before: currentExpense.description, after: input.description };
+        changes.description = {
+          before: currentExpense.description,
+          after: input.description,
+        };
       }
       if (input.date !== undefined && input.date !== currentExpense.date) {
         updateData.date = input.date;
         changes.date = { before: currentExpense.date, after: input.date };
       }
-      if (input.splitMode !== undefined && input.splitMode !== currentExpense.splitMode) {
+      if (
+        input.splitMode !== undefined &&
+        input.splitMode !== currentExpense.splitMode
+      ) {
         updateData.splitMode = input.splitMode;
-        changes.splitMode = { before: currentExpense.splitMode, after: input.splitMode };
+        changes.splitMode = {
+          before: currentExpense.splitMode,
+          after: input.splitMode,
+        };
       }
-      if (input.paymentMode !== undefined && input.paymentMode !== currentExpense.paymentMode) {
+      if (
+        input.paymentMode !== undefined &&
+        input.paymentMode !== currentExpense.paymentMode
+      ) {
         updateData.paymentMode = input.paymentMode;
-        changes.paymentMode = { before: currentExpense.paymentMode, after: input.paymentMode };
+        changes.paymentMode = {
+          before: currentExpense.paymentMode,
+          after: input.paymentMode,
+        };
       }
 
       // Update the expense if there are changes
@@ -285,8 +328,10 @@ export const expenseRouter = createTRPCRouter({
       // Update splits if provided
       if (input.splits) {
         // Delete existing splits
-        await ctx.db.delete(expenseSplits).where(eq(expenseSplits.expenseId, input.id));
-        
+        await ctx.db
+          .delete(expenseSplits)
+          .where(eq(expenseSplits.expenseId, input.id));
+
         // Create new splits
         if (input.splits.length > 0) {
           const totalAmount = parseFloat(input.amount ?? currentExpense.amount);
@@ -295,7 +340,10 @@ export const expenseRouter = createTRPCRouter({
 
             if ((input.splitMode ?? currentExpense.splitMode) === "equal") {
               splitAmount = (totalAmount / input.splits!.length).toFixed(2);
-            } else if ((input.splitMode ?? currentExpense.splitMode) === "percentage" && split.percentage) {
+            } else if (
+              (input.splitMode ?? currentExpense.splitMode) === "percentage" &&
+              split.percentage
+            ) {
               splitAmount = ((totalAmount * split.percentage) / 100).toFixed(2);
             } else if (split.amount) {
               splitAmount = split.amount;
@@ -313,25 +361,36 @@ export const expenseRouter = createTRPCRouter({
 
           await ctx.db.insert(expenseSplits).values(splitRecords);
         }
-        
+
         changes.splits = { before: currentExpense.splits, after: input.splits };
       }
 
       // Update payments if provided
       if (input.payments) {
         // Delete existing payments
-        await ctx.db.delete(expensePayments).where(eq(expensePayments.expenseId, input.id));
-        
+        await ctx.db
+          .delete(expensePayments)
+          .where(eq(expensePayments.expenseId, input.id));
+
         // Create new payments
         if (input.payments.length > 0) {
           const totalAmount = parseFloat(input.amount ?? currentExpense.amount);
           const paymentRecords = input.payments.map((payment) => {
             let paymentAmount: string;
 
-            if ((input.paymentMode ?? currentExpense.paymentMode) === "single") {
+            if (
+              (input.paymentMode ?? currentExpense.paymentMode) === "single"
+            ) {
               paymentAmount = input.amount ?? currentExpense.amount;
-            } else if ((input.paymentMode ?? currentExpense.paymentMode) === "percentage" && payment.percentage) {
-              paymentAmount = ((totalAmount * payment.percentage) / 100).toFixed(2);
+            } else if (
+              (input.paymentMode ?? currentExpense.paymentMode) ===
+                "percentage" &&
+              payment.percentage
+            ) {
+              paymentAmount = (
+                (totalAmount * payment.percentage) /
+                100
+              ).toFixed(2);
             } else if (payment.amount) {
               paymentAmount = payment.amount;
             } else {
@@ -348,8 +407,11 @@ export const expenseRouter = createTRPCRouter({
 
           await ctx.db.insert(expensePayments).values(paymentRecords);
         }
-        
-        changes.payments = { before: currentExpense.payments, after: input.payments };
+
+        changes.payments = {
+          before: currentExpense.payments,
+          after: input.payments,
+        };
       }
 
       // Create history record if there were changes
@@ -461,10 +523,16 @@ export const expenseRouter = createTRPCRouter({
       });
 
       // Delete all related records
-      await ctx.db.delete(expenseSplits).where(eq(expenseSplits.expenseId, input.id));
-      await ctx.db.delete(expensePayments).where(eq(expensePayments.expenseId, input.id));
-      await ctx.db.delete(expenseComments).where(eq(expenseComments.expenseId, input.id));
-      
+      await ctx.db
+        .delete(expenseSplits)
+        .where(eq(expenseSplits.expenseId, input.id));
+      await ctx.db
+        .delete(expensePayments)
+        .where(eq(expensePayments.expenseId, input.id));
+      await ctx.db
+        .delete(expenseComments)
+        .where(eq(expenseComments.expenseId, input.id));
+
       // Finally delete the expense
       await ctx.db.delete(expenses).where(eq(expenses.id, input.id));
     }),

@@ -228,12 +228,15 @@ export const expenseSplitsRelations = relations(expenseSplits, ({ one }) => ({
   }),
 }));
 
-export const expensePaymentsRelations = relations(expensePayments, ({ one }) => ({
-  expense: one(expenses, {
-    fields: [expensePayments.expenseId],
-    references: [expenses.id],
+export const expensePaymentsRelations = relations(
+  expensePayments,
+  ({ one }) => ({
+    expense: one(expenses, {
+      fields: [expensePayments.expenseId],
+      references: [expenses.id],
+    }),
   }),
-}));
+);
 
 export const expenseHistoryRelations = relations(expenseHistory, ({ one }) => ({
   expense: one(expenses, {
@@ -242,12 +245,15 @@ export const expenseHistoryRelations = relations(expenseHistory, ({ one }) => ({
   }),
 }));
 
-export const expenseCommentsRelations = relations(expenseComments, ({ one }) => ({
-  expense: one(expenses, {
-    fields: [expenseComments.expenseId],
-    references: [expenses.id],
+export const expenseCommentsRelations = relations(
+  expenseComments,
+  ({ one }) => ({
+    expense: one(expenses, {
+      fields: [expenseComments.expenseId],
+      references: [expenses.id],
+    }),
   }),
-}));
+);
 
 export const groupsRelations = relations(groups, ({ many }) => ({
   memberships: many(groupMemberships),

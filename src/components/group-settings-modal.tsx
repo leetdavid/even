@@ -33,7 +33,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, UserPlus, Check, ChevronsUpDown, Mail } from "lucide-react";
+import {
+  Trash2,
+  Check,
+  ChevronsUpDown,
+  Mail,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { type RouterOutputs } from "@/trpc/shared";
 
 type Group = NonNullable<RouterOutputs["groups"]["getUserGroups"]>[number];
@@ -53,9 +60,13 @@ export function GroupSettingsModal({
   const [groupDescription, setGroupDescription] = useState<string>(
     group.description ?? "",
   );
-  const [memberDisplayInfo, setMemberDisplayInfo] = useState<Record<string, { name: string; email: string }>>({});
+  const [memberDisplayInfo, setMemberDisplayInfo] = useState<
+    Record<string, { name: string; email: string }>
+  >({});
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [selectedInvites, setSelectedInvites] = useState<Array<{type: 'friend' | 'email', value: string, label: string}>>([]);
+  const [selectedInvites, setSelectedInvites] = useState<
+    Array<{ type: "friend" | "email"; value: string; label: string }>
+  >([]);
   const [emailInput, setEmailInput] = useState("");
 
   const utils = api.useUtils();
@@ -81,7 +92,6 @@ export function GroupSettingsModal({
       toast.error(error.message);
     },
   });
-
 
   const inviteToGroup = api.groups.inviteToGroup.useMutation({
     onSuccess: async (data) => {
@@ -113,6 +123,26 @@ export function GroupSettingsModal({
     },
   });
 
+  const promoteToAdmin = api.groups.promoteToAdmin.useMutation({
+    onSuccess: async (data) => {
+      await utils.groups.invalidate();
+      toast.success(data.message);
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const demoteFromAdmin = api.groups.demoteFromAdmin.useMutation({
+    onSuccess: async (data) => {
+      await utils.groups.invalidate();
+      toast.success(data.message);
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   const handleUpdateGroup = () => {
     if (!user?.id) return;
     updateGroup.mutate({
@@ -123,12 +153,11 @@ export function GroupSettingsModal({
     });
   };
 
-
   const handleSendInvites = () => {
     if (!user?.id || selectedInvites.length === 0) return;
 
     selectedInvites.forEach((invite) => {
-      if (invite.type === 'friend') {
+      if (invite.type === "friend") {
         inviteToGroup.mutate({
           groupId: group.id,
           invitedUserId: invite.value,
@@ -148,39 +177,64 @@ export function GroupSettingsModal({
   };
 
   const addEmailInvite = (email: string) => {
-    if (email && !selectedInvites.some(invite => invite.value === email)) {
-      setSelectedInvites(prev => [...prev, {
-        type: 'email',
-        value: email,
-        label: email
-      }]);
+    if (email && !selectedInvites.some((invite) => invite.value === email)) {
+      setSelectedInvites((prev) => [
+        ...prev,
+        {
+          type: "email",
+          value: email,
+          label: email,
+        },
+      ]);
       setEmailInput("");
     }
   };
 
   const toggleFriendInvite = (friendId: string, friendName: string) => {
-    setSelectedInvites(prev => {
-      const exists = prev.find(invite => invite.value === friendId);
+    setSelectedInvites((prev) => {
+      const exists = prev.find((invite) => invite.value === friendId);
       if (exists) {
-        return prev.filter(invite => invite.value !== friendId);
+        return prev.filter((invite) => invite.value !== friendId);
       } else {
-        return [...prev, {
-          type: 'friend',
-          value: friendId,
-          label: friendName
-        }];
+        return [
+          ...prev,
+          {
+            type: "friend",
+            value: friendId,
+            label: friendName,
+          },
+        ];
       }
     });
   };
 
   const removeInvite = (value: string) => {
-    setSelectedInvites(prev => prev.filter(invite => invite.value !== value));
+    setSelectedInvites((prev) =>
+      prev.filter((invite) => invite.value !== value),
+    );
   };
-
 
   const handleRemoveMember = (memberUserId: string) => {
     if (!user?.id) return;
     removeMember.mutate({
+      groupId: group.id,
+      userId: user.id,
+      memberUserId,
+    });
+  };
+
+  const handlePromoteToAdmin = (memberUserId: string) => {
+    if (!user?.id) return;
+    promoteToAdmin.mutate({
+      groupId: group.id,
+      userId: user.id,
+      memberUserId,
+    });
+  };
+
+  const handleDemoteFromAdmin = (memberUserId: string) => {
+    if (!user?.id) return;
+    demoteFromAdmin.mutate({
       groupId: group.id,
       userId: user.id,
       memberUserId,
@@ -192,32 +246,32 @@ export function GroupSettingsModal({
     if (groupDetails?.members && open) {
       const fetchMemberInfo = async () => {
         const memberInfo: Record<string, { name: string; email: string }> = {};
-        
+
         for (const member of groupDetails.members) {
           try {
             // For now, use a simple fallback approach
-            if (member.userId.includes('@')) {
+            if (member.userId.includes("@")) {
               // If it's an email, use it as both name and email
               memberInfo[member.userId] = {
-                name: member.userId.split('@')[0] ?? member.userId,
+                name: member.userId.split("@")[0] ?? member.userId,
                 email: member.userId,
               };
             } else {
               // For user IDs, show truncated version
               memberInfo[member.userId] = {
                 name: `User ${member.userId.slice(-8)}`,
-                email: member.userId.includes('@') ? member.userId : 'Unknown',
+                email: member.userId.includes("@") ? member.userId : "Unknown",
               };
             }
           } catch {
             // Fallback
             memberInfo[member.userId] = {
               name: member.userId,
-              email: member.userId.includes('@') ? member.userId : 'Unknown',
+              email: member.userId.includes("@") ? member.userId : "Unknown",
             };
           }
         }
-        
+
         setMemberDisplayInfo(memberInfo);
       };
 
@@ -278,7 +332,7 @@ export function GroupSettingsModal({
                       value={emailInput}
                       onValueChange={setEmailInput}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && emailInput.includes('@')) {
+                        if (e.key === "Enter" && emailInput.includes("@")) {
                           e.preventDefault();
                           addEmailInvite(emailInput);
                         }
@@ -286,7 +340,7 @@ export function GroupSettingsModal({
                     />
                     <CommandList>
                       <CommandEmpty>
-                        {emailInput.includes('@') ? (
+                        {emailInput.includes("@") ? (
                           <div className="p-2">
                             <Button
                               size="sm"
@@ -298,14 +352,14 @@ export function GroupSettingsModal({
                             </Button>
                           </div>
                         ) : (
-                          <div className="p-2 text-center text-sm text-muted-foreground">
-                            {friendsNotInGroup.length === 0 
-                              ? "No friends available to invite" 
-                              : "No friends found"
-                            }
-                            {process.env.NODE_ENV === 'development' && (
+                          <div className="text-muted-foreground p-2 text-center text-sm">
+                            {friendsNotInGroup.length === 0
+                              ? "No friends available to invite"
+                              : "No friends found"}
+                            {process.env.NODE_ENV === "development" && (
                               <div className="mt-2 text-xs">
-                                Debug: {friendsNotInGroup.length} friends not in group
+                                Debug: {friendsNotInGroup.length} friends not in
+                                group
                               </div>
                             )}
                           </div>
@@ -313,35 +367,52 @@ export function GroupSettingsModal({
                       </CommandEmpty>
                       {friendsNotInGroup.length > 0 && (
                         <CommandGroup heading="Friends">
-                          {friendsNotInGroup.map((friend: { userId: string; name: string; email: string }) => {
-                            const isSelected = selectedInvites.some(
-                              invite => invite.value === friend.userId
-                            );
-                            return (
-                              <CommandItem
-                                key={friend.userId}
-                                onSelect={() => toggleFriendInvite(friend.userId, friend.name)}
-                                className="flex items-center gap-2"
-                              >
-                                <Checkbox checked={isSelected} />
-                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 text-xs font-medium text-white">
-                                  {friend.name.charAt(0).toUpperCase()}
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="text-sm font-medium">{friend.name}</span>
-                                  <span className="text-xs text-muted-foreground">{friend.email}</span>
-                                </div>
-                                {isSelected && <Check className="ml-auto h-4 w-4" />}
-                              </CommandItem>
-                            );
-                          })}
+                          {friendsNotInGroup.map(
+                            (friend: {
+                              userId: string;
+                              name: string;
+                              email: string;
+                            }) => {
+                              const isSelected = selectedInvites.some(
+                                (invite) => invite.value === friend.userId,
+                              );
+                              return (
+                                <CommandItem
+                                  key={friend.userId}
+                                  onSelect={() =>
+                                    toggleFriendInvite(
+                                      friend.userId,
+                                      friend.name,
+                                    )
+                                  }
+                                  className="flex items-center gap-2"
+                                >
+                                  <Checkbox checked={isSelected} />
+                                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 text-xs font-medium text-white">
+                                    {friend.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-medium">
+                                      {friend.name}
+                                    </span>
+                                    <span className="text-muted-foreground text-xs">
+                                      {friend.email}
+                                    </span>
+                                  </div>
+                                  {isSelected && (
+                                    <Check className="ml-auto h-4 w-4" />
+                                  )}
+                                </CommandItem>
+                              );
+                            },
+                          )}
                         </CommandGroup>
                       )}
                     </CommandList>
                   </Command>
                 </PopoverContent>
               </Popover>
-              
+
               {/* Selected invites */}
               {selectedInvites.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
@@ -351,7 +422,7 @@ export function GroupSettingsModal({
                       variant="secondary"
                       className="flex items-center gap-1"
                     >
-                      {invite.type === 'email' && <Mail size={12} />}
+                      {invite.type === "email" && <Mail size={12} />}
                       {invite.label}
                       <button
                         onClick={() => removeInvite(invite.value)}
@@ -363,7 +434,7 @@ export function GroupSettingsModal({
                   ))}
                 </div>
               )}
-              
+
               {selectedInvites.length > 0 && (
                 <Button
                   onClick={handleSendInvites}
@@ -372,7 +443,7 @@ export function GroupSettingsModal({
                 >
                   {inviteToGroup.isPending || inviteByEmail.isPending
                     ? "Sending..."
-                    : `Send ${selectedInvites.length} Invitation${selectedInvites.length !== 1 ? 's' : ''}`}
+                    : `Send ${selectedInvites.length} Invitation${selectedInvites.length !== 1 ? "s" : ""}`}
                 </Button>
               )}
             </div>
@@ -389,20 +460,21 @@ export function GroupSettingsModal({
                   const isCurrentUser = member.userId === user?.id;
                   const isAdmin = member.role === "admin";
                   const canManage = group.role === "admin" && !isCurrentUser;
-                  
+
                   // Check if current user can leave (if there's another admin)
-                  const otherAdmins = groupDetails.members?.filter(
-                    m => m.role === "admin" && m.userId !== user?.id
-                  ) || [];
+                  const otherAdmins =
+                    groupDetails.members?.filter(
+                      (m) => m.role === "admin" && m.userId !== user?.id,
+                    ) || [];
                   const canLeave = isCurrentUser && otherAdmins.length > 0;
-                  
+
                   // Get display info
                   const displayInfo = memberDisplayInfo[member.userId];
-                  const displayName = isCurrentUser 
-                    ? "You" 
-                    : displayInfo?.name ?? member.userId;
+                  const displayName = isCurrentUser
+                    ? "You"
+                    : (displayInfo?.name ?? member.userId);
                   const displayEmail = displayInfo?.email ?? member.userId;
-                  
+
                   return (
                     <div
                       key={member.id}
@@ -413,9 +485,7 @@ export function GroupSettingsModal({
                           {displayName.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-sm font-medium">
-                            {displayName}
-                          </p>
+                          <p className="text-sm font-medium">{displayName}</p>
                           <p className="text-muted-foreground text-xs">
                             {isCurrentUser ? "Your account" : displayEmail}
                           </p>
@@ -429,19 +499,36 @@ export function GroupSettingsModal({
                       </div>
                       {(canManage || canLeave) && (
                         <div className="flex items-center gap-1">
-                          {canManage && !isAdmin && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 px-2 text-xs"
-                              onClick={() => {
-                                // Note: Would need to implement role promotion endpoint
-                                toast.info("Role promotion coming soon!");
-                              }}
-                            >
-                              <UserPlus size={12} className="mr-1" />
-                              Promote
-                            </Button>
+                          {canManage && !isCurrentUser && (
+                            <>
+                              {!isAdmin ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2 text-xs"
+                                  onClick={() =>
+                                    handlePromoteToAdmin(member.userId)
+                                  }
+                                  disabled={promoteToAdmin.isPending}
+                                >
+                                  <ChevronUp size={12} className="mr-1" />
+                                  Promote
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2 text-xs"
+                                  onClick={() =>
+                                    handleDemoteFromAdmin(member.userId)
+                                  }
+                                  disabled={demoteFromAdmin.isPending}
+                                >
+                                  <ChevronDown size={12} className="mr-1" />
+                                  Demote
+                                </Button>
+                              )}
+                            </>
                           )}
                           <Button
                             size="sm"

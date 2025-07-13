@@ -652,4 +652,126 @@ export const groupsRouter = createTRPCRouter({
 
       return { success: true, message: "Invitation cancelled successfully" };
     }),
+
+  promoteToAdmin: publicProcedure
+    .input(
+      z.object({
+        groupId: z.number(),
+        userId: z.string(), // user making the request (must be admin)
+        memberUserId: z.string(), // user to promote
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Check if user is admin of the group
+      const adminMembership = await ctx.db.query.groupMemberships.findFirst({
+        where: and(
+          eq(groupMemberships.groupId, input.groupId),
+          eq(groupMemberships.userId, input.userId),
+          eq(groupMemberships.role, "admin"),
+        ),
+      });
+
+      if (!adminMembership) {
+        throw new Error("Only group admins can promote members");
+      }
+
+      // Check if the member to promote exists in the group
+      const memberToPromote = await ctx.db.query.groupMemberships.findFirst({
+        where: and(
+          eq(groupMemberships.groupId, input.groupId),
+          eq(groupMemberships.userId, input.memberUserId),
+        ),
+      });
+
+      if (!memberToPromote) {
+        throw new Error("Member not found in this group");
+      }
+
+      if (memberToPromote.role === "admin") {
+        throw new Error("Member is already an admin");
+      }
+
+      // Promote the member to admin
+      await ctx.db
+        .update(groupMemberships)
+        .set({ role: "admin" })
+        .where(
+          and(
+            eq(groupMemberships.groupId, input.groupId),
+            eq(groupMemberships.userId, input.memberUserId),
+          ),
+        );
+
+      return {
+        success: true,
+        message: "Member promoted to admin successfully!",
+      };
+    }),
+
+  demoteFromAdmin: publicProcedure
+    .input(
+      z.object({
+        groupId: z.number(),
+        userId: z.string(), // user making the request (must be admin)
+        memberUserId: z.string(), // user to demote
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Check if user is admin of the group
+      const adminMembership = await ctx.db.query.groupMemberships.findFirst({
+        where: and(
+          eq(groupMemberships.groupId, input.groupId),
+          eq(groupMemberships.userId, input.userId),
+          eq(groupMemberships.role, "admin"),
+        ),
+      });
+
+      if (!adminMembership) {
+        throw new Error("Only group admins can demote members");
+      }
+
+      // Check if the member to demote exists in the group
+      const memberToDemote = await ctx.db.query.groupMemberships.findFirst({
+        where: and(
+          eq(groupMemberships.groupId, input.groupId),
+          eq(groupMemberships.userId, input.memberUserId),
+        ),
+      });
+
+      if (!memberToDemote) {
+        throw new Error("Member not found in this group");
+      }
+
+      if (memberToDemote.role !== "admin") {
+        throw new Error("Member is not an admin");
+      }
+
+      // Prevent demoting self if they're the only admin
+      const allAdmins = await ctx.db.query.groupMemberships.findMany({
+        where: and(
+          eq(groupMemberships.groupId, input.groupId),
+          eq(groupMemberships.role, "admin"),
+        ),
+      });
+
+      if (allAdmins.length === 1 && input.memberUserId === input.userId) {
+        throw new Error("Cannot demote yourself as the only admin");
+      }
+
+      // Demote the member
+      await ctx.db
+        .update(groupMemberships)
+        .set({ role: "member" })
+        .where(
+          and(
+            eq(groupMemberships.groupId, input.groupId),
+            eq(groupMemberships.userId, input.memberUserId),
+          ),
+        );
+
+      return {
+        success: true,
+        message: "Admin demoted to member successfully!",
+      };
+    }),
 });

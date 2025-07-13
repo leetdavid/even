@@ -29,7 +29,10 @@ interface GroupsSidebarProps {
   onGroupSelect: (groupId: number | null) => void;
 }
 
-export function GroupsSidebar({ selectedGroupId, onGroupSelect }: GroupsSidebarProps) {
+export function GroupsSidebar({
+  selectedGroupId,
+  onGroupSelect,
+}: GroupsSidebarProps) {
   const { user } = useUser();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
@@ -346,7 +349,7 @@ export function GroupsSidebar({ selectedGroupId, onGroupSelect }: GroupsSidebarP
                   return (
                     <div
                       key={friendship.id}
-                      className="flex items-center gap-2 rounded-lg p-2 transition-colors hover:bg-accent/50"
+                      className="hover:bg-accent/50 flex items-center gap-2 rounded-lg p-2 transition-colors"
                     >
                       <div className="h-2 w-2 rounded-full bg-green-500"></div>
                       <span className="text-sm">{friendName}</span>

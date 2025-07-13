@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
 import * as cc from "currency-codes";
 
 import { api } from "@/trpc/react";
@@ -31,6 +33,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -60,13 +64,23 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState<Date>(new Date());
+  const [dateOpen, setDateOpen] = useState(false);
+  const [dateValue, setDateValue] = useState(() => {
+    const now = new Date();
+    return now.toLocaleDateString("en-US", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  });
+  const [dateMonth, setDateMonth] = useState<Date>(new Date());
   const [splitMode, setSplitMode] = useState<"equal" | "percentage" | "custom">(
     "equal",
   );
-  const [paymentMode, setPaymentMode] = useState<"single" | "percentage" | "custom">(
-    "single",
-  );
+  const [paymentMode, setPaymentMode] = useState<
+    "single" | "percentage" | "custom"
+  >("single");
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [splits, setSplits] = useState<SplitUser[]>([]);
   const [payments, setPayments] = useState<PaymentUser[]>([]);
@@ -74,6 +88,25 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
   const [paidByOpen, setPaidByOpen] = useState(false);
 
   const utils = api.useUtils();
+
+  // Helper functions for date picker
+  const formatDate = (date: Date | undefined) => {
+    if (!date) {
+      return "";
+    }
+    return date.toLocaleDateString("en-US", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const isValidDate = (date: Date | undefined) => {
+    if (!date) {
+      return false;
+    }
+    return !isNaN(date.getTime());
+  };
 
   const friends = api.friends.getFriends.useQuery(
     { userId: user?.id ?? "" },
@@ -93,7 +126,10 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
       setCurrency("USD");
       setCategory("");
       setDescription("");
-      setDate(new Date().toISOString().split("T")[0]);
+      const newDate = new Date();
+      setDate(newDate);
+      setDateValue(formatDate(newDate));
+      setDateMonth(newDate);
       setSplitMode("equal");
       setPaymentMode("single");
       setSelectedMembers([]);
@@ -104,13 +140,14 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
     },
     onError: (error) => {
       console.error("Error creating expense:", error);
-      
+
       // Extract the actual error message from tRPC error structure
-      let errorMessage = "Failed to create expense. Please check your input and try again.";
-      
+      let errorMessage =
+        "Failed to create expense. Please check your input and try again.";
+
       try {
         // Parse the error message if it's JSON
-        if (error.message.startsWith('[')) {
+        if (error.message.startsWith("[")) {
           const parsed = JSON.parse(error.message) as unknown[];
           if (Array.isArray(parsed) && parsed.length > 0) {
             const firstError = parsed[0] as { message?: string };
@@ -125,7 +162,7 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
         // If parsing fails, use the original message or default
         errorMessage = error.message || errorMessage;
       }
-      
+
       toast.error(errorMessage);
     },
   });
@@ -134,8 +171,8 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
   useEffect(() => {
     if (groupId && groupDetails.data?.members && open) {
       const memberIds = groupDetails.data.members
-        .filter(member => member.userId !== user?.id) // Exclude current user
-        .map(member => member.userId);
+        .filter((member) => member.userId !== user?.id) // Exclude current user
+        .map((member) => member.userId);
       setSelectedMembers(memberIds);
       // Set current user as default payer
       if (user?.id && !paidBy) {
@@ -156,7 +193,11 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
 
     // Validate that members are selected
     if (selectedMembers.length === 0) {
-      toast.error(groupId ? "Please select group members to share with" : "Please select friends to share with");
+      toast.error(
+        groupId
+          ? "Please select group members to share with"
+          : "Please select friends to share with",
+      );
       return;
     }
 
@@ -210,7 +251,7 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
       currency,
       category,
       description,
-      date,
+      date: format(date, "yyyy-MM-dd"),
       userId: user.id,
       groupId: groupId ?? undefined,
       splitMode,
@@ -296,13 +337,13 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
         return friendship.friendName;
       }
     }
-    
+
     // For group members who aren't friends, show userId (email or user ID)
     // In a real app, you'd want to fetch display names from Clerk
-    if (memberId.includes('@')) {
+    if (memberId.includes("@")) {
       return memberId; // Show email directly
     }
-    
+
     return `User ${memberId.slice(-8)}`; // Show last 8 chars of user ID
   };
 
@@ -426,14 +467,61 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
 
           <div>
             <Label htmlFor="date">Date *</Label>
-            <input
-              id="date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="border-input bg-background mt-1 w-full rounded-md border px-3 py-2 text-sm"
-              required
-            />
+            <div className="relative mt-1 flex gap-2">
+              <Input
+                id="date"
+                value={dateValue}
+                placeholder="June 01, 2025"
+                className="bg-background pr-10"
+                onChange={(e) => {
+                  const newDate = new Date(e.target.value);
+                  setDateValue(e.target.value);
+                  if (isValidDate(newDate)) {
+                    setDate(newDate);
+                    setDateMonth(newDate);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setDateOpen(true);
+                  }
+                }}
+              />
+              <Popover open={dateOpen} onOpenChange={setDateOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="date-picker"
+                    variant="ghost"
+                    className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
+                  >
+                    <CalendarIcon className="size-3.5" />
+                    <span className="sr-only">Select date</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-auto overflow-hidden p-0"
+                  align="end"
+                  alignOffset={-8}
+                  sideOffset={10}
+                >
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    captionLayout="dropdown"
+                    month={dateMonth}
+                    onMonthChange={setDateMonth}
+                    onSelect={(selectedDate) => {
+                      if (selectedDate) {
+                        setDate(selectedDate);
+                        setDateValue(formatDate(selectedDate));
+                        setDateOpen(false);
+                      }
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           <div>
@@ -455,9 +543,10 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
               <div className="mt-2 max-h-32 space-y-2 overflow-y-auto">
                 {groupId ? (
                   // Group member selection
-                  groupDetails.data?.members && groupDetails.data.members.length > 0 ? (
+                  groupDetails.data?.members &&
+                  groupDetails.data.members.length > 0 ? (
                     groupDetails.data.members
-                      .filter(member => member.userId !== user?.id) // Exclude current user
+                      .filter((member) => member.userId !== user?.id) // Exclude current user
                       .map((member) => {
                         const memberId = member.userId;
                         const memberName = getMemberDisplayName(memberId);
@@ -470,7 +559,9 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
                             <Checkbox
                               id={`member-${memberId}`}
                               checked={selectedMembers.includes(memberId)}
-                              onCheckedChange={() => handleMemberToggle(memberId)}
+                              onCheckedChange={() =>
+                                handleMemberToggle(memberId)
+                              }
                             />
                             <Label
                               htmlFor={`member-${memberId}`}
@@ -486,37 +577,35 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
                       No other group members available.
                     </p>
                   )
-                ) : (
-                  // Friend selection for personal expenses
-                  friends.data && friends.data.length > 0 ? (
-                    friends.data.map((friendship) => {
-                      const friendId = friendship.friendId;
-                      const friendName = friendship.friendName;
+                ) : // Friend selection for personal expenses
+                friends.data && friends.data.length > 0 ? (
+                  friends.data.map((friendship) => {
+                    const friendId = friendship.friendId;
+                    const friendName = friendship.friendName;
 
-                      return (
-                        <div
-                          key={friendship.id}
-                          className="flex items-center space-x-2"
+                    return (
+                      <div
+                        key={friendship.id}
+                        className="flex items-center space-x-2"
+                      >
+                        <Checkbox
+                          id={`friend-${friendId}`}
+                          checked={selectedMembers.includes(friendId)}
+                          onCheckedChange={() => handleMemberToggle(friendId)}
+                        />
+                        <Label
+                          htmlFor={`friend-${friendId}`}
+                          className="text-sm"
                         >
-                          <Checkbox
-                            id={`friend-${friendId}`}
-                            checked={selectedMembers.includes(friendId)}
-                            onCheckedChange={() => handleMemberToggle(friendId)}
-                          />
-                          <Label
-                            htmlFor={`friend-${friendId}`}
-                            className="text-sm"
-                          >
-                            {friendName}
-                          </Label>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-muted-foreground text-sm">
-                      No friends available. Add friends first!
-                    </p>
-                  )
+                          {friendName}
+                        </Label>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    No friends available. Add friends first!
+                  </p>
                 )}
               </div>
             </div>
@@ -576,7 +665,9 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
                             <Check
                               className={cn(
                                 "ml-auto h-4 w-4",
-                                paidBy === user?.id ? "opacity-100" : "opacity-0",
+                                paidBy === user?.id
+                                  ? "opacity-100"
+                                  : "opacity-0",
                               )}
                             />
                           </CommandItem>
@@ -596,7 +687,9 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
                                 <Check
                                   className={cn(
                                     "ml-auto h-4 w-4",
-                                    paidBy === memberId ? "opacity-100" : "opacity-0",
+                                    paidBy === memberId
+                                      ? "opacity-100"
+                                      : "opacity-0",
                                   )}
                                 />
                               </CommandItem>
@@ -636,9 +729,12 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
                               step="0.1"
                               value={payment?.percentage ?? ""}
                               onChange={(e) => {
-                                const newPercentage = parseFloat(e.target.value) || 0;
+                                const newPercentage =
+                                  parseFloat(e.target.value) || 0;
                                 setPayments((prev) => {
-                                  const existing = prev.find((p) => p.userId === userId);
+                                  const existing = prev.find(
+                                    (p) => p.userId === userId,
+                                  );
                                   if (existing) {
                                     return prev.map((p) =>
                                       p.userId === userId
@@ -646,7 +742,10 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
                                         : p,
                                     );
                                   } else {
-                                    return [...prev, { userId, percentage: newPercentage }];
+                                    return [
+                                      ...prev,
+                                      { userId, percentage: newPercentage },
+                                    ];
                                   }
                                 });
                               }}
@@ -666,7 +765,9 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
                               onChange={(e) => {
                                 const newAmount = e.target.value;
                                 setPayments((prev) => {
-                                  const existing = prev.find((p) => p.userId === userId);
+                                  const existing = prev.find(
+                                    (p) => p.userId === userId,
+                                  );
                                   if (existing) {
                                     return prev.map((p) =>
                                       p.userId === userId
@@ -674,7 +775,10 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
                                         : p,
                                     );
                                   } else {
-                                    return [...prev, { userId, amount: newAmount }];
+                                    return [
+                                      ...prev,
+                                      { userId, amount: newAmount },
+                                    ];
                                   }
                                 });
                               }}
@@ -779,7 +883,8 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
                     : "0.00"}
                   <div className="mt-1">
                     <Badge variant="secondary">
-                      You + {selectedMembers.length} {groupId ? "member" : "friend"}
+                      You + {selectedMembers.length}{" "}
+                      {groupId ? "member" : "friend"}
                       {selectedMembers.length !== 1 ? "s" : ""}
                     </Badge>
                   </div>
