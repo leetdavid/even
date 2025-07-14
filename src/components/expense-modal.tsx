@@ -36,7 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, parseExpenseCategory } from "@/lib/utils";
 
 interface ExpenseModalProps {
   children: React.ReactNode;
@@ -321,6 +321,17 @@ export function ExpenseModal({ children, groupId }: ExpenseModalProps) {
       ),
     );
   };
+
+  // Auto-categorize based on title and description keywords
+  useEffect(() => {
+    // Only auto-categorize if category is currently empty and we have a title to analyze
+    if (!category && title.trim()) {
+      const suggestedCategory = parseExpenseCategory(title, description);
+      if (suggestedCategory) {
+        setCategory(suggestedCategory);
+      }
+    }
+  }, [title, description, category]);
 
   // Update splits when amount or split mode changes
   useEffect(() => {

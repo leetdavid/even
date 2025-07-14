@@ -7,7 +7,9 @@ import {
   validatePayments, 
   formatCurrency, 
   calculateDebts,
-  formatRelativeTime
+  formatRelativeTime,
+  describeExpenseChange,
+  parseExpenseCategory
 } from './utils'
 
 type ExpenseSplit = {
@@ -358,6 +360,99 @@ describe('calculateDebts', () => {
   })
 })
 
+describe('describeExpenseChange', () => {
+  const mockGetUserName = (userId: string) => {
+    if (userId === 'user1') return 'Alice'
+    if (userId === 'user2') return 'Bob'
+    if (userId === 'user_123') return 'David Lee'
+    return userId
+  }
+
+  it('should return null for identical values', () => {
+    expect(describeExpenseChange('title', 'Test', 'Test')).toBeNull()
+    expect(describeExpenseChange('amount', '100', '100')).toBeNull()
+    expect(describeExpenseChange('splitMode', 'equal', 'equal')).toBeNull()
+  })
+
+  it('should describe title changes', () => {
+    const result = describeExpenseChange('title', 'Old Title', 'New Title')
+    expect(result).toBe('Title changed from "Old Title" to "New Title"')
+  })
+
+  it('should describe amount changes', () => {
+    const result = describeExpenseChange('amount', '100', '150')
+    expect(result).toBe('Amount changed from 100 to 150')
+  })
+
+  it('should describe split mode changes', () => {
+    const result = describeExpenseChange('splitMode', 'equal', 'percentage')
+    expect(result).toBe('Split method changed from equal split to percentage split')
+  })
+
+  it('should describe payment mode changes', () => {
+    const result = describeExpenseChange('paymentMode', 'single', 'custom')
+    expect(result).toBe('Payment method changed from single payer to custom payments')
+  })
+
+  it('should handle empty descriptions', () => {
+    const result = describeExpenseChange('description', '', 'New description')
+    expect(result).toBe('Description changed from empty to New description')
+  })
+
+  it('should handle empty categories', () => {
+    const result = describeExpenseChange('category', null, 'Food')
+    expect(result).toBe('Category changed from none to Food')
+  })
+
+  it('should describe split changes with user names', () => {
+    const beforeSplits = [{ userId: 'user1', amount: '50' }]
+    const afterSplits = [{ userId: 'user1', amount: '30' }, { userId: 'user2', amount: '70' }]
+    
+    const result = describeExpenseChange('splits', beforeSplits, afterSplits, mockGetUserName)
+    expect(result).toBe('Splits changed from Alice: 50 to Alice: 30, Bob: 70')
+  })
+
+  it('should describe payment changes with user names', () => {
+    const beforePayments = [{ userId: 'user1', amount: '100' }]
+    const afterPayments = [{ userId: 'user1', amount: '60' }, { userId: 'user2', amount: '40' }]
+    
+    const result = describeExpenseChange('payments', beforePayments, afterPayments, mockGetUserName)
+    expect(result).toBe('Payments changed from Alice: 100 to Alice: 60, Bob: 40')
+  })
+
+  it('should handle percentage splits', () => {
+    const beforeSplits = [{ userId: 'user1', percentage: 100 }]
+    const afterSplits = [{ userId: 'user1', percentage: 60 }, { userId: 'user2', percentage: 40 }]
+    
+    const result = describeExpenseChange('splits', beforeSplits, afterSplits, mockGetUserName)
+    expect(result).toBe('Splits changed from Alice: 100% to Alice: 60%, Bob: 40%')
+  })
+
+  it('should return null for identical arrays', () => {
+    const splits = [{ userId: 'user1', amount: '50' }]
+    expect(describeExpenseChange('splits', splits, splits)).toBeNull()
+  })
+
+  it('should return null for identical splits with different object references', () => {
+    const beforeSplits = [{ userId: 'user1', amount: '50' }, { userId: 'user2', amount: '30' }]
+    const afterSplits = [{ userId: 'user1', amount: '50' }, { userId: 'user2', amount: '30' }]
+    expect(describeExpenseChange('splits', beforeSplits, afterSplits)).toBeNull()
+  })
+
+  it('should handle unknown fields', () => {
+    const result = describeExpenseChange('customField', 'old', 'new')
+    expect(result).toBe('CustomField changed from old to new')
+  })
+
+  it('should work without user name function', () => {
+    const beforeSplits = [{ userId: 'alice@example.com', amount: '50' }]
+    const afterSplits = [{ userId: 'alice@example.com', amount: '30' }, { userId: 'bob@example.com', amount: '70' }]
+    
+    const result = describeExpenseChange('splits', beforeSplits, afterSplits)
+    expect(result).toBe('Splits changed from alice: 50 to alice: 30, bob: 70')
+  })
+})
+
 describe('formatRelativeTime', () => {
   let mockDate: Date
 
@@ -512,6 +607,191 @@ describe('formatRelativeTime', () => {
       
       const justPast = new Date('2024-01-15T11:59:59.900Z') // 100ms ago
       expect(formatRelativeTime(justPast)).toBe('a few seconds ago')
+    })
+  })
+})
+
+describe('parseExpenseCategory', () => {
+  describe('Transportation', () => {
+    it('should categorize ride sharing services', () => {
+      expect(parseExpenseCategory('Uber ride to airport')).toBe('Transportation')
+      expect(parseExpenseCategory('Lyft downtown')).toBe('Transportation')
+      expect(parseExpenseCategory('Taxi from hotel')).toBe('Transportation')
+      expect(parseExpenseCategory('Cab fare')).toBe('Transportation')
+    })
+
+    it('should categorize public transport', () => {
+      expect(parseExpenseCategory('Metro card')).toBe('Transportation')
+      expect(parseExpenseCategory('Bus ticket')).toBe('Transportation')
+      expect(parseExpenseCategory('Train to NYC')).toBe('Transportation')
+      expect(parseExpenseCategory('Subway ride')).toBe('Transportation')
+    })
+
+    it('should categorize car-related expenses', () => {
+      expect(parseExpenseCategory('Gas station fill up')).toBe('Transportation')
+      expect(parseExpenseCategory('Parking fee')).toBe('Transportation')
+      expect(parseExpenseCategory('Toll road')).toBe('Transportation')
+      expect(parseExpenseCategory('Rental car')).toBe('Transportation')
+    })
+
+    it('should categorize flights', () => {
+      expect(parseExpenseCategory('Flight to LA')).toBe('Transportation')
+      expect(parseExpenseCategory('Airplane ticket')).toBe('Transportation')
+      expect(parseExpenseCategory('Airport shuttle')).toBe('Transportation')
+    })
+  })
+
+  describe('Food & Dining', () => {
+    it('should categorize restaurants and fast food', () => {
+      expect(parseExpenseCategory('McDonald lunch')).toBe('Food & Dining')
+      expect(parseExpenseCategory('Starbucks coffee')).toBe('Food & Dining')
+      expect(parseExpenseCategory('Pizza delivery')).toBe('Food & Dining')
+      expect(parseExpenseCategory('Restaurant dinner')).toBe('Food & Dining')
+    })
+
+    it('should categorize grocery shopping', () => {
+      expect(parseExpenseCategory('Whole Foods grocery')).toBe('Food & Dining')
+      expect(parseExpenseCategory('Supermarket shopping')).toBe('Food & Dining')
+      expect(parseExpenseCategory('Trader Joe supplies')).toBe('Food & Dining')
+    })
+
+    it('should categorize meals', () => {
+      expect(parseExpenseCategory('Lunch meeting')).toBe('Food & Dining')
+      expect(parseExpenseCategory('Breakfast at cafe')).toBe('Food & Dining')
+      expect(parseExpenseCategory('Dinner with friends')).toBe('Food & Dining')
+    })
+  })
+
+  describe('Shopping', () => {
+    it('should categorize online shopping', () => {
+      expect(parseExpenseCategory('Amazon purchase')).toBe('Shopping')
+      expect(parseExpenseCategory('Target shopping')).toBe('Shopping')
+      expect(parseExpenseCategory('Best Buy electronics')).toBe('Shopping')
+    })
+
+    it('should categorize clothing and accessories', () => {
+      expect(parseExpenseCategory('New shoes')).toBe('Shopping')
+      expect(parseExpenseCategory('Clothing store')).toBe('Shopping')
+      expect(parseExpenseCategory('Mall shopping')).toBe('Shopping')
+    })
+  })
+
+  describe('Entertainment', () => {
+    it('should categorize streaming services', () => {
+      expect(parseExpenseCategory('Netflix subscription')).toBe('Entertainment')
+      expect(parseExpenseCategory('Spotify premium')).toBe('Entertainment')
+      expect(parseExpenseCategory('Disney Plus')).toBe('Entertainment')
+    })
+
+    it('should categorize events and activities', () => {
+      expect(parseExpenseCategory('Movie ticket')).toBe('Entertainment')
+      expect(parseExpenseCategory('Concert ticket')).toBe('Entertainment')
+      expect(parseExpenseCategory('Theater show')).toBe('Entertainment')
+      expect(parseExpenseCategory('Game purchase')).toBe('Entertainment')
+    })
+  })
+
+  describe('Health & Medical', () => {
+    it('should categorize medical appointments', () => {
+      expect(parseExpenseCategory('Doctor visit')).toBe('Health & Medical')
+      expect(parseExpenseCategory('Dentist appointment')).toBe('Health & Medical')
+      expect(parseExpenseCategory('Hospital bill')).toBe('Health & Medical')
+    })
+
+    it('should categorize pharmacy purchases', () => {
+      expect(parseExpenseCategory('CVS prescription')).toBe('Health & Medical')
+      expect(parseExpenseCategory('Walgreens medicine')).toBe('Health & Medical')
+      expect(parseExpenseCategory('Pharmacy pickup')).toBe('Health & Medical')
+    })
+  })
+
+  describe('Utilities', () => {
+    it('should categorize utility bills', () => {
+      expect(parseExpenseCategory('Electric bill')).toBe('Utilities')
+      expect(parseExpenseCategory('Water utility')).toBe('Utilities')
+      expect(parseExpenseCategory('Internet bill')).toBe('Utilities')
+      expect(parseExpenseCategory('Phone bill')).toBe('Utilities')
+    })
+
+    it('should categorize service providers', () => {
+      expect(parseExpenseCategory('Comcast cable')).toBe('Utilities')
+      expect(parseExpenseCategory('Verizon wireless')).toBe('Utilities')
+      expect(parseExpenseCategory('ATT service')).toBe('Utilities')
+    })
+  })
+
+  describe('Home & Garden', () => {
+    it('should categorize home improvement stores', () => {
+      expect(parseExpenseCategory('Home Depot supplies')).toBe('Home & Garden')
+      expect(parseExpenseCategory('Lowes materials')).toBe('Home & Garden')
+      expect(parseExpenseCategory('IKEA furniture')).toBe('Home & Garden')
+    })
+
+    it('should categorize maintenance and repairs', () => {
+      expect(parseExpenseCategory('Home repair')).toBe('Home & Garden')
+      expect(parseExpenseCategory('Garden supplies')).toBe('Home & Garden')
+      expect(parseExpenseCategory('Cleaning supplies')).toBe('Home & Garden')
+    })
+  })
+
+  describe('Travel', () => {
+    it('should categorize accommodation', () => {
+      expect(parseExpenseCategory('Hotel booking')).toBe('Travel')
+      expect(parseExpenseCategory('Airbnb stay')).toBe('Travel')
+      expect(parseExpenseCategory('Resort vacation')).toBe('Travel')
+    })
+
+    it('should categorize travel planning', () => {
+      expect(parseExpenseCategory('Expedia booking')).toBe('Travel')
+      expect(parseExpenseCategory('Travel insurance')).toBe('Travel')
+      expect(parseExpenseCategory('Vacation trip')).toBe('Travel')
+    })
+  })
+
+  describe('Education', () => {
+    it('should categorize educational expenses', () => {
+      expect(parseExpenseCategory('University tuition')).toBe('Education')
+      expect(parseExpenseCategory('Course enrollment')).toBe('Education')
+      expect(parseExpenseCategory('Textbook purchase')).toBe('Education')
+      expect(parseExpenseCategory('Training certification')).toBe('Education')
+    })
+  })
+
+  describe('Personal Care', () => {
+    it('should categorize beauty and wellness', () => {
+      expect(parseExpenseCategory('Hair salon')).toBe('Personal Care')
+      expect(parseExpenseCategory('Spa treatment')).toBe('Personal Care')
+      expect(parseExpenseCategory('Gym membership')).toBe('Personal Care')
+      expect(parseExpenseCategory('Massage therapy')).toBe('Personal Care')
+    })
+  })
+
+  describe('Edge cases', () => {
+    it('should handle case insensitive matching', () => {
+      expect(parseExpenseCategory('UBER RIDE')).toBe('Transportation')
+      expect(parseExpenseCategory('uber ride')).toBe('Transportation')
+      expect(parseExpenseCategory('Uber Ride')).toBe('Transportation')
+    })
+
+    it('should prioritize more specific keywords', () => {
+      // "subway sandwich" should match Food & Dining, not Transportation
+      expect(parseExpenseCategory('Subway sandwich lunch')).toBe('Food & Dining')
+    })
+
+    it('should use description when provided', () => {
+      expect(parseExpenseCategory('Random title', 'Went to Starbucks for coffee')).toBe('Food & Dining')
+      expect(parseExpenseCategory('Expense', 'Uber ride to work')).toBe('Transportation')
+    })
+
+    it('should return null for unrecognized expenses', () => {
+      expect(parseExpenseCategory('Random expense')).toBeNull()
+      expect(parseExpenseCategory('Unknown category')).toBeNull()
+      expect(parseExpenseCategory('')).toBeNull()
+    })
+
+    it('should find keywords within longer text', () => {
+      expect(parseExpenseCategory('Bought some electronics at Best Buy today')).toBe('Shopping')
+      expect(parseExpenseCategory('Had a great meal at the restaurant downtown')).toBe('Food & Dining')
     })
   })
 })

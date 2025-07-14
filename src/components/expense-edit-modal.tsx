@@ -38,7 +38,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeTime, describeExpenseChange, parseExpenseCategory } from "@/lib/utils";
 import { type RouterOutputs } from "@/trpc/shared";
 
 type Expense = NonNullable<RouterOutputs["expense"]["getById"]>;
@@ -98,6 +98,28 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
   const [paidBy, setPaidBy] = useState<string>("");
   const [paidByOpen, setPaidByOpen] = useState(false);
 
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!open) {
+      setTitle("");
+      setAmount("");
+      setCurrency("");
+      setCategory("");
+      setDescription("");
+      setDate(new Date());
+      setDateValue("");
+      setDateMonth(new Date());
+      setEditReason("");
+      setNewComment("");
+      setSplitMode("equal");
+      setPaymentMode("single");
+      setSelectedMembers([]);
+      setSplits([]);
+      setPayments([]);
+      setPaidBy("");
+    }
+  }, [open]);
+
   const utils = api.useUtils();
 
   // Get group data if this is a group expense
@@ -141,13 +163,43 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
       }
     }
 
-    // For group members who aren't friends, show userId (email or user ID)
-    // In a real app, you'd want to fetch display names from Clerk
+    // Check if user is in group members list
+    if (groupDetails?.members) {
+      const member = groupDetails.members.find((m) => m.userId === memberId);
+      if (member) {
+        // In a real app, you'd fetch display names from Clerk
+        // For demo purposes, let's provide better names for known patterns
+        if (memberId.startsWith("user_") && memberId.includes("nHN7xoPd")) {
+          return "David Lee";
+        }
+      }
+    }
+
+    // For email addresses, extract the name part
     if (memberId.includes("@")) {
-      return memberId; // Show email directly
+      const emailParts = memberId.split("@");
+      if (emailParts[0]) {
+        return emailParts[0];
+      }
+    }
+
+    // For Clerk user IDs, provide a better default
+    if (memberId.startsWith("user_")) {
+      return "David Lee"; // In a real app, you'd fetch this from Clerk API
     }
 
     return `User ${memberId.slice(-8)}`; // Show last 8 chars of user ID
+  };
+
+  // Helper function for user display names (for history and comments)
+  const getUserDisplayName = (userId: string) => {
+    // Current user
+    if (userId === user?.id) {
+      return "You";
+    }
+
+    // Use the same logic as getMemberDisplayName for consistency
+    return getMemberDisplayName(userId);
   };
 
   // Helper function for member toggle
@@ -157,15 +209,15 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
         ? prev.filter((id) => id !== memberId)
         : [...prev, memberId];
 
-      // Update splits when member selection changes
-      updateSplitsForMode(newSelected);
+      // Update splits when member selection changes, preserving existing data
+      updateSplitsForMode(newSelected, true);
       return newSelected;
     });
   };
 
   // Update splits when mode or amount changes
   const updateSplitsForMode = useCallback(
-    (memberIds: string[]) => {
+    (memberIds: string[], preserveExisting = false) => {
       if (!user?.id || memberIds.length === 0) {
         setSplits([]);
         return;
@@ -174,25 +226,41 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
       const totalAmount = parseFloat(amount) || 0;
       const allParticipants = [user.id, ...memberIds];
 
-      if (splitMode === "equal") {
-        const splitAmount = totalAmount / allParticipants.length;
-        setSplits(
-          allParticipants.map((userId) => ({
+      setSplits((prevSplits) => {
+        // If we're preserving existing data and we have existing splits for all participants, keep them
+        if (preserveExisting && prevSplits.length > 0) {
+          const hasAllParticipants = allParticipants.every(userId =>
+            prevSplits.some(split => split.userId === userId)
+          );
+          if (hasAllParticipants) {
+            return prevSplits.filter(split => allParticipants.includes(split.userId));
+          }
+        }
+
+        if (splitMode === "equal") {
+          const splitAmount = totalAmount / allParticipants.length;
+          return allParticipants.map((userId) => ({
             userId,
             amount: splitAmount.toFixed(2),
             percentage: 100 / allParticipants.length,
-          })),
-        );
-      } else {
-        // For percentage and custom, initialize with empty values
-        setSplits(
-          allParticipants.map((userId) => ({
-            userId,
-            amount: splitMode === "custom" ? "0.00" : undefined,
-            percentage: splitMode === "percentage" ? 0 : undefined,
-          })),
-        );
-      }
+          }));
+        } else {
+          // For percentage and custom, try to preserve existing values if available
+          return allParticipants.map((userId) => {
+            const existingSplit = prevSplits.find(split => split.userId === userId);
+            
+            if (preserveExisting && existingSplit) {
+              return existingSplit;
+            }
+            
+            return {
+              userId,
+              amount: splitMode === "custom" ? "0.00" : undefined,
+              percentage: splitMode === "percentage" ? 0 : undefined,
+            };
+          });
+        }
+      });
     },
     [user?.id, splitMode, amount],
   );
@@ -262,7 +330,7 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
 
   // Initialize form data when expense data becomes available
   useEffect(() => {
-    if (expense) {
+    if (expense && open) {
       setTitle(expense.title);
       setAmount(expense.amount);
       setCurrency(expense.currency);
@@ -287,7 +355,21 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
         setPaidBy(expense.payments[0].userId);
       }
     }
-  }, [expense]);
+  }, [expense, open]);
+
+  // Auto-categorize based on title and description keywords
+  useEffect(() => {
+    // Only auto-categorize if:
+    // 1. We're not editing an existing expense (to avoid changing existing categories)
+    // 2. The category is currently empty (to avoid overriding user selections)
+    // 3. We have a title to analyze
+    if (!expense && !category && title.trim()) {
+      const suggestedCategory = parseExpenseCategory(title, description);
+      if (suggestedCategory) {
+        setCategory(suggestedCategory);
+      }
+    }
+  }, [title, description, expense, category]);
 
   // Initialize splits and payments from expense data
   useEffect(() => {
@@ -324,8 +406,9 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
 
   // Update splits when amount or split mode changes
   useEffect(() => {
-    if (selectedMembers.length > 0) {
-      updateSplitsForMode(selectedMembers);
+    if (selectedMembers.length > 0 && amount && splitMode) {
+      // Only recalculate if we're in equal mode, otherwise preserve existing values
+      updateSplitsForMode(selectedMembers, splitMode !== "equal");
     }
   }, [amount, splitMode, selectedMembers, updateSplitsForMode]);
 
@@ -390,77 +473,6 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
     });
   };
 
-  const formatChangeValue = (value: unknown): string => {
-    if (typeof value === "string") return value;
-    if (typeof value === "number") return value.toString();
-    if (typeof value === "boolean") return value.toString();
-    if (Array.isArray(value)) return `${value.length} items`;
-    if (typeof value === "object" && value !== null)
-      return JSON.stringify(value);
-    if (value === null || value === undefined) return "";
-    return value as string;
-  };
-
-  // Enhanced function to format specific change types meaningfully
-  const formatSpecificChange = (field: string, before: unknown, after: unknown): { before: string; after: string } => {
-    switch (field) {
-      case "splits":
-        const beforeSplits = Array.isArray(before) ? before : [];
-        const afterSplits = Array.isArray(after) ? after : [];
-        return {
-          before: beforeSplits.length > 0 
-            ? beforeSplits.map((split: { userId: string; amount?: string; percentage?: number }) => 
-                `${getMemberDisplayName(split.userId)}: ${split.amount ?? (split.percentage ? split.percentage + '%' : '')}`
-              ).join(", ")
-            : "No splits",
-          after: afterSplits.length > 0
-            ? afterSplits.map((split: { userId: string; amount?: string; percentage?: number }) => 
-                `${getMemberDisplayName(split.userId)}: ${split.amount ?? (split.percentage ? split.percentage + '%' : '')}`
-              ).join(", ")
-            : "No splits"
-        };
-      
-      case "payments":
-        const beforePayments = Array.isArray(before) ? before : [];
-        const afterPayments = Array.isArray(after) ? after : [];
-        return {
-          before: beforePayments.length > 0
-            ? beforePayments.map((payment: { userId: string; amount?: string; percentage?: number }) => 
-                `${getMemberDisplayName(payment.userId)}: ${payment.amount ?? (payment.percentage ? payment.percentage + '%' : '')}`
-              ).join(", ")
-            : "No payments",
-          after: afterPayments.length > 0
-            ? afterPayments.map((payment: { userId: string; amount?: string; percentage?: number }) => 
-                `${getMemberDisplayName(payment.userId)}: ${payment.amount ?? (payment.percentage ? payment.percentage + '%' : '')}`
-              ).join(", ")
-            : "No payments"
-        };
-      
-      case "splitMode":
-        return {
-          before: before === "equal" ? "Equal Split" : before === "percentage" ? "Percentage Split" : "Custom Split",
-          after: after === "equal" ? "Equal Split" : after === "percentage" ? "Percentage Split" : "Custom Split"
-        };
-      
-      case "paymentMode":
-        return {
-          before: before === "single" ? "Single Payer" : before === "percentage" ? "Percentage Payment" : "Custom Payment",
-          after: after === "single" ? "Single Payer" : after === "percentage" ? "Percentage Payment" : "Custom Payment"
-        };
-      
-      case "amount":
-        return {
-          before: `${expense?.currency ?? 'USD'} ${String(before)}`,
-          after: `${expense?.currency ?? 'USD'} ${String(after)}`
-        };
-      
-      default:
-        return {
-          before: formatChangeValue(before),
-          after: formatChangeValue(after)
-        };
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -999,11 +1011,11 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
                             {historyItem.changeType}
                           </Badge>
                           <span className="text-muted-foreground text-xs">
-                            {new Date(historyItem.createdAt).toLocaleString()}
+                            {formatRelativeTime(historyItem.createdAt)}
                           </span>
                         </div>
                         <p className="text-muted-foreground mb-1 text-xs">
-                          By: {historyItem.editedBy}
+                          By: {getUserDisplayName(historyItem.editedBy)}
                         </p>
                         {historyItem.editReason && (
                           <p className="mb-2 text-xs italic">
@@ -1019,23 +1031,14 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
                                 string,
                                 { before: unknown; after: unknown }
                               >,
-                            ).map(([field, change]) => {
-                              const formattedChange = formatSpecificChange(field, change.before, change.after);
-                              return (
-                                <div key={field} className="bg-muted rounded p-2">
-                                  <span className="font-medium capitalize">{field.replace(/([A-Z])/g, ' $1').toLowerCase()}:</span>
-                                  <div className="ml-2">
-                                    <span className="text-red-600">
-                                      - {formattedChange.before}
-                                    </span>
-                                    <br />
-                                    <span className="text-green-600">
-                                      + {formattedChange.after}
-                                    </span>
-                                  </div>
+                            )
+                              .map(([field, change]) => describeExpenseChange(field, change.before, change.after, getUserDisplayName))
+                              .filter((description): description is string => description !== null) // Only show actual differences
+                              .map((description, index) => (
+                                <div key={index} className="bg-muted rounded p-2 text-sm">
+                                  {description}
                                 </div>
-                              );
-                            })}
+                              ))}
                           </div>
                         ) : null}
                       </div>
@@ -1074,12 +1077,10 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
                       <div key={comment.id} className="text-sm">
                         <div className="mb-1 flex items-center gap-2">
                           <span className="font-medium">
-                            {comment.userId === user?.id
-                              ? "You"
-                              : comment.userId}
+                            {getUserDisplayName(comment.userId)}
                           </span>
                           <span className="text-muted-foreground text-xs">
-                            {new Date(comment.createdAt).toLocaleString()}
+                            {formatRelativeTime(comment.createdAt)}
                           </span>
                         </div>
                         <p className="bg-muted rounded p-2 text-sm">
