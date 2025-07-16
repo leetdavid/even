@@ -94,6 +94,7 @@ export const groupsRouter = createTRPCRouter({
       const userGroups = await ctx.db
         .select({
           id: groups.id,
+          uuid: groups.uuid,
           name: groups.name,
           description: groups.description,
           createdBy: groups.createdBy,
@@ -106,6 +107,20 @@ export const groupsRouter = createTRPCRouter({
         .where(eq(groupMemberships.userId, input.userId));
 
       return userGroups;
+    }),
+
+  getGroupByUuid: publicProcedure
+    .input(z.object({ uuid: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const group = await ctx.db.query.groups.findFirst({
+        where: eq(groups.uuid, input.uuid),
+      });
+
+      if (!group) {
+        throw new Error("Group not found");
+      }
+
+      return group;
     }),
 
   getGroupDetails: publicProcedure

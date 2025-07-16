@@ -284,7 +284,9 @@ export function GroupSettingsModal({
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Group Settings: {group.name}</DialogTitle>
+          <DialogTitle className="truncate pr-8">
+            Group Settings: {group.name}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           {/* General Settings */}

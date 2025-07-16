@@ -1,0 +1,1 @@
+ALTER TABLE "even_expense_history" DROP COLUMN "editReason";

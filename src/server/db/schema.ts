@@ -66,6 +66,11 @@ export const groups = createTable(
   "group",
   (d) => ({
     id: d.integer().primaryKey().generatedByDefaultAsIdentity(),
+    uuid: d
+      .uuid()
+      .notNull()
+      .unique()
+      .default(sql`gen_random_uuid()`),
     name: d.varchar({ length: 256 }).notNull(),
     description: d.text(),
     createdBy: d.varchar({ length: 256 }).notNull(),
@@ -78,6 +83,7 @@ export const groups = createTable(
   (t) => [
     index("created_by_idx").on(t.createdBy),
     index("name_idx").on(t.name),
+    index("uuid_idx").on(t.uuid),
   ],
 );
 
@@ -177,7 +183,6 @@ export const expenseHistory = createTable(
     editedBy: d.varchar({ length: 256 }).notNull(), // user who made the edit
     changeType: d.varchar({ length: 50 }).notNull(), // created, updated, deleted
     changes: d.json(), // JSON object with before/after values
-    editReason: d.text(), // optional reason for the edit
     createdAt: d
       .timestamp({ withTimezone: true })
       .default(sql`CURRENT_TIMESTAMP`)

@@ -38,7 +38,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { cn, formatRelativeTime, describeExpenseChange, parseExpenseCategory } from "@/lib/utils";
+import {
+  cn,
+  formatRelativeTime,
+  describeExpenseChange,
+  parseExpenseCategory,
+} from "@/lib/utils";
 import { type RouterOutputs } from "@/trpc/shared";
 
 type Expense = NonNullable<RouterOutputs["expense"]["getById"]>;
@@ -61,14 +66,18 @@ type PaymentUser = {
   percentage?: number;
 };
 
-export function ExpenseEditModal({ children, expense: propExpense, expenseId }: ExpenseEditModalProps) {
+export function ExpenseEditModal({
+  children,
+  expense: propExpense,
+  expenseId,
+}: ExpenseEditModalProps) {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
 
   // Fetch expense data if expenseId is provided
   const { data: fetchedExpense } = api.expense.getById.useQuery(
     { id: expenseId! },
-    { enabled: !!expenseId && open }
+    { enabled: !!expenseId && open },
   );
 
   // Use provided expense or fetched expense
@@ -83,15 +92,14 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
   const [dateOpen, setDateOpen] = useState(false);
   const [dateValue, setDateValue] = useState("");
   const [dateMonth, setDateMonth] = useState<Date>(new Date());
-  const [editReason, setEditReason] = useState("");
   const [newComment, setNewComment] = useState("");
 
   const [splitMode, setSplitMode] = useState<"equal" | "percentage" | "custom">(
     (expense?.splitMode as "equal" | "percentage" | "custom") ?? "equal",
   );
-  const [paymentMode, setPaymentMode] = useState<"single" | "percentage" | "custom">(
-    (expense?.paymentMode as "single" | "percentage" | "custom") ?? "single",
-  );
+  const [paymentMode, setPaymentMode] = useState<
+    "single" | "percentage" | "custom"
+  >((expense?.paymentMode as "single" | "percentage" | "custom") ?? "single");
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [splits, setSplits] = useState<SplitUser[]>([]);
   const [payments, setPayments] = useState<PaymentUser[]>([]);
@@ -109,7 +117,6 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
       setDate(new Date());
       setDateValue("");
       setDateMonth(new Date());
-      setEditReason("");
       setNewComment("");
       setSplitMode("equal");
       setPaymentMode("single");
@@ -125,7 +132,7 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
   // Get group data if this is a group expense
   const { data: groupDetails } = api.groups.getGroupDetails.useQuery(
     { groupId: expense?.groupId ?? 0 },
-    { enabled: !!expense?.groupId }
+    { enabled: !!expense?.groupId },
   );
 
   // Get friends data for personal expenses
@@ -229,11 +236,13 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
       setSplits((prevSplits) => {
         // If we're preserving existing data and we have existing splits for all participants, keep them
         if (preserveExisting && prevSplits.length > 0) {
-          const hasAllParticipants = allParticipants.every(userId =>
-            prevSplits.some(split => split.userId === userId)
+          const hasAllParticipants = allParticipants.every((userId) =>
+            prevSplits.some((split) => split.userId === userId),
           );
           if (hasAllParticipants) {
-            return prevSplits.filter(split => allParticipants.includes(split.userId));
+            return prevSplits.filter((split) =>
+              allParticipants.includes(split.userId),
+            );
           }
         }
 
@@ -247,12 +256,14 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
         } else {
           // For percentage and custom, try to preserve existing values if available
           return allParticipants.map((userId) => {
-            const existingSplit = prevSplits.find(split => split.userId === userId);
-            
+            const existingSplit = prevSplits.find(
+              (split) => split.userId === userId,
+            );
+
             if (preserveExisting && existingSplit) {
               return existingSplit;
             }
-            
+
             return {
               userId,
               amount: splitMode === "custom" ? "0.00" : undefined,
@@ -285,7 +296,6 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
     onSuccess: async () => {
       await utils.expense.invalidate();
       toast.success("Expense updated successfully!");
-      setEditReason("");
       setOpen(false);
     },
     onError: (error) => {
@@ -336,19 +346,25 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
       setCurrency(expense.currency);
       setCategory(expense.category ?? "");
       setDescription(expense.description ?? "");
-      
+
       const expenseDate = new Date(expense.date);
       setDate(expenseDate);
-      setDateValue(expenseDate.toLocaleDateString("en-US", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      }));
+      setDateValue(
+        expenseDate.toLocaleDateString("en-US", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        }),
+      );
       setDateMonth(expenseDate);
 
       // Initialize payment and split modes
-      setSplitMode((expense.splitMode as "equal" | "percentage" | "custom") ?? "equal");
-      setPaymentMode((expense.paymentMode as "single" | "percentage" | "custom") ?? "single");
+      setSplitMode(
+        (expense.splitMode as "equal" | "percentage" | "custom") ?? "equal",
+      );
+      setPaymentMode(
+        (expense.paymentMode as "single" | "percentage" | "custom") ?? "single",
+      );
 
       // Set initial paidBy if single payment mode
       if (expense.paymentMode === "single" && expense.payments?.[0]) {
@@ -454,7 +470,6 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
       category,
       description,
       date: format(date, "yyyy-MM-dd"),
-      editReason,
       editedBy: user.id,
       splitMode,
       paymentMode,
@@ -473,632 +488,652 @@ export function ExpenseEditModal({ children, expense: propExpense, expenseId }: 
     });
   };
 
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-h-[90vh] max-w-[95vw] md:max-w-[1200px]">
         <DialogHeader>
-          <DialogTitle>Edit Expense: {expense?.title ?? "Loading..."}</DialogTitle>
+          <DialogTitle>
+            Edit Expense: {expense?.title ?? "Loading..."}
+          </DialogTitle>
         </DialogHeader>
 
         {!expense ? (
-          <div className="flex items-center justify-center h-[70vh]">
+          <div className="flex h-[70vh] items-center justify-center">
             <p>Loading expense data...</p>
           </div>
         ) : (
           <div className="grid h-[70vh] grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Main Edit Form */}
             <div className="overflow-y-auto lg:col-span-2">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="title">Title *</Label>
-                <Input
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="amount">Amount *</Label>
+                  <Label htmlFor="title">Title *</Label>
                   <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
                     required
                   />
                 </div>
-                <div>
-                  <Label htmlFor="currency">Currency</Label>
-                  <Input
-                    id="currency"
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
-                  />
-                </div>
-              </div>
 
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="date">Date *</Label>
-                <div className="relative mt-1 flex gap-2">
-                  <Input
-                    id="date"
-                    value={dateValue}
-                    placeholder="June 01, 2025"
-                    className="bg-background pr-10"
-                    onChange={(e) => {
-                      const newDate = new Date(e.target.value);
-                      setDateValue(e.target.value);
-                      if (isValidDate(newDate)) {
-                        setDate(newDate);
-                        setDateMonth(newDate);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        setDateOpen(true);
-                      }
-                    }}
-                  />
-                  <Popover open={dateOpen} onOpenChange={setDateOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        id="date-picker"
-                        variant="ghost"
-                        className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
-                      >
-                        <CalendarIcon className="size-3.5" />
-                        <span className="sr-only">Select date</span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto overflow-hidden p-0"
-                      align="end"
-                      alignOffset={-8}
-                      sideOffset={10}
-                    >
-                      <Calendar
-                        mode="single"
-                        selected={date}
-                        captionLayout="dropdown"
-                        month={dateMonth}
-                        onMonthChange={setDateMonth}
-                        onSelect={(selectedDate) => {
-                          if (selectedDate) {
-                            setDate(selectedDate);
-                            setDateValue(formatDate(selectedDate));
-                            setDateOpen(false);
-                          }
-                        }}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </div>
-
-              {/* Payment and Split Configuration */}
-              <div className="space-y-4 rounded-lg border p-4">
-                <div>
-                  <Label>
-                    {expense?.groupId ? "Group Members" : "Select Friends to Share With"}
-                  </Label>
-                  <div className="mt-2 max-h-32 space-y-2 overflow-y-auto">
-                    {expense?.groupId ? (
-                      // Group member selection
-                      groupDetails?.members &&
-                      groupDetails.members.length > 0 ? (
-                        groupDetails.members
-                          .filter((member) => member.userId !== user?.id) // Exclude current user
-                          .map((member) => {
-                            const memberId = member.userId;
-                            const memberName = getMemberDisplayName(memberId);
-
-                            return (
-                              <div
-                                key={member.id}
-                                className="flex items-center space-x-2"
-                              >
-                                <Checkbox
-                                  id={`member-${memberId}`}
-                                  checked={selectedMembers.includes(memberId)}
-                                  onCheckedChange={() =>
-                                    handleMemberToggle(memberId)
-                                  }
-                                />
-                                <Label
-                                  htmlFor={`member-${memberId}`}
-                                  className="text-sm"
-                                >
-                                  {memberName}
-                                </Label>
-                              </div>
-                            );
-                          })
-                      ) : (
-                        <p className="text-muted-foreground text-sm">
-                          No other group members available.
-                        </p>
-                      )
-                    ) : // Friend selection for personal expenses
-                    friends && friends.length > 0 ? (
-                      friends.map((friendship) => {
-                        const friendId = friendship.friendId;
-                        const friendName = friendship.friendName;
-
-                        return (
-                          <div
-                            key={friendship.id}
-                            className="flex items-center space-x-2"
-                          >
-                            <Checkbox
-                              id={`friend-${friendId}`}
-                              checked={selectedMembers.includes(friendId)}
-                              onCheckedChange={() => handleMemberToggle(friendId)}
-                            />
-                            <Label
-                              htmlFor={`friend-${friendId}`}
-                              className="text-sm"
-                            >
-                              {friendName}
-                            </Label>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <p className="text-muted-foreground text-sm">
-                        No friends available. Add friends first!
-                      </p>
-                    )}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label htmlFor="amount">Amount *</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="currency">Currency</Label>
+                    <Input
+                      id="currency"
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                    />
                   </div>
                 </div>
 
-                {/* Payment Configuration */}
                 <div>
-                  <Label>Payment Mode</Label>
-                  <Tabs
-                    value={paymentMode}
-                    onValueChange={(value) =>
-                      setPaymentMode(value as typeof paymentMode)
-                    }
-                    className="mt-2"
-                  >
-                    <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="single">Single Payer</TabsTrigger>
-                      <TabsTrigger value="percentage">Percentage</TabsTrigger>
-                      <TabsTrigger value="custom">Custom Amount</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+                  <Label htmlFor="category">Category</Label>
+                  <Input
+                    id="category"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                  />
                 </div>
 
-                {paymentMode === "single" && (
-                  <div>
-                    <Label>Who Paid? *</Label>
-                    <Popover open={paidByOpen} onOpenChange={setPaidByOpen}>
+                <div>
+                  <Label htmlFor="date">Date *</Label>
+                  <div className="relative mt-1 flex gap-2">
+                    <Input
+                      id="date"
+                      value={dateValue}
+                      placeholder="June 01, 2025"
+                      className="bg-background pr-10"
+                      onChange={(e) => {
+                        const newDate = new Date(e.target.value);
+                        setDateValue(e.target.value);
+                        if (isValidDate(newDate)) {
+                          setDate(newDate);
+                          setDateMonth(newDate);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setDateOpen(true);
+                        }
+                      }}
+                    />
+                    <Popover open={dateOpen} onOpenChange={setDateOpen}>
                       <PopoverTrigger asChild>
                         <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={paidByOpen}
-                          className="mt-2 w-full justify-between"
+                          id="date-picker"
+                          variant="ghost"
+                          className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
                         >
-                          {paidBy
-                            ? paidBy === user?.id
-                              ? "You"
-                              : getMemberDisplayName(paidBy)
-                            : "Select who paid..."}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          <CalendarIcon className="size-3.5" />
+                          <span className="sr-only">Select date</span>
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-full p-0">
-                        <Command>
-                          <CommandInput placeholder="Search participants..." />
-                          <CommandList>
-                            <CommandEmpty>No participants found.</CommandEmpty>
-                            <CommandGroup>
-                              {/* Current user option */}
-                              <CommandItem
-                                value={user?.id}
-                                onSelect={() => {
-                                  setPaidBy(user?.id ?? "");
-                                  setPaidByOpen(false);
-                                }}
-                              >
-                                You
-                                <Check
-                                  className={cn(
-                                    "ml-auto h-4 w-4",
-                                    paidBy === user?.id
-                                      ? "opacity-100"
-                                      : "opacity-0",
-                                  )}
-                                />
-                              </CommandItem>
-                              {/* Selected members options */}
-                              {selectedMembers.map((memberId) => {
-                                const memberName = getMemberDisplayName(memberId);
-                                return (
-                                  <CommandItem
-                                    key={memberId}
-                                    value={memberId}
-                                    onSelect={() => {
-                                      setPaidBy(memberId);
-                                      setPaidByOpen(false);
-                                    }}
-                                  >
-                                    {memberName}
-                                    <Check
-                                      className={cn(
-                                        "ml-auto h-4 w-4",
-                                        paidBy === memberId
-                                          ? "opacity-100"
-                                          : "opacity-0",
-                                      )}
-                                    />
-                                  </CommandItem>
-                                );
-                              })}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
+                      <PopoverContent
+                        className="w-auto overflow-hidden p-0"
+                        align="end"
+                        alignOffset={-8}
+                        sideOffset={10}
+                      >
+                        <Calendar
+                          mode="single"
+                          selected={date}
+                          captionLayout="dropdown"
+                          month={dateMonth}
+                          onMonthChange={setDateMonth}
+                          onSelect={(selectedDate) => {
+                            if (selectedDate) {
+                              setDate(selectedDate);
+                              setDateValue(formatDate(selectedDate));
+                              setDateOpen(false);
+                            }
+                          }}
+                        />
                       </PopoverContent>
                     </Popover>
                   </div>
-                )}
-
-                {selectedMembers.length > 0 && paymentMode !== "single" && (
-                  <div>
-                    <Label>Payment Details</Label>
-                    <div className="mt-2 space-y-2">
-                      {[user?.id, ...selectedMembers].map((userId) => {
-                        if (!userId) return null;
-                        const payment = payments.find((p) => p.userId === userId);
-                        const displayName =
-                          userId === user?.id
-                            ? "You"
-                            : getMemberDisplayName(userId);
-
-                        return (
-                          <div key={userId} className="flex items-center gap-2">
-                            <span className="min-w-[80px] text-sm font-medium">
-                              {displayName}:
-                            </span>
-                            {paymentMode === "percentage" ? (
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="0.1"
-                                  value={payment?.percentage ?? ""}
-                                  onChange={(e) => {
-                                    const newPercentage =
-                                      parseFloat(e.target.value) || 0;
-                                    setPayments((prev) => {
-                                      const existing = prev.find(
-                                        (p) => p.userId === userId,
-                                      );
-                                      if (existing) {
-                                        return prev.map((p) =>
-                                          p.userId === userId
-                                            ? { ...p, percentage: newPercentage }
-                                            : p,
-                                        );
-                                      } else {
-                                        return [
-                                          ...prev,
-                                          { userId, percentage: newPercentage },
-                                        ];
-                                      }
-                                    });
-                                  }}
-                                  className="border-input bg-background w-20 rounded border px-2 py-1 text-sm"
-                                  placeholder="0"
-                                />
-                                <span className="text-sm">%</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1">
-                                <span className="text-sm">{currency}</span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={payment?.amount ?? ""}
-                                  onChange={(e) => {
-                                    const newAmount = e.target.value;
-                                    setPayments((prev) => {
-                                      const existing = prev.find(
-                                        (p) => p.userId === userId,
-                                      );
-                                      if (existing) {
-                                        return prev.map((p) =>
-                                          p.userId === userId
-                                            ? { ...p, amount: newAmount }
-                                            : p,
-                                        );
-                                      } else {
-                                        return [
-                                          ...prev,
-                                          { userId, amount: newAmount },
-                                        ];
-                                      }
-                                    });
-                                  }}
-                                  className="border-input bg-background w-24 rounded border px-2 py-1 text-sm"
-                                  placeholder="0.00"
-                                />
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                </div>
 
                 <div>
-                  <Label>Split Mode</Label>
-                  <Tabs
-                    value={splitMode}
-                    onValueChange={(value) =>
-                      setSplitMode(value as typeof splitMode)
-                    }
-                    className="mt-2"
-                  >
-                    <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="equal">Equal Split</TabsTrigger>
-                      <TabsTrigger value="percentage">Percentage</TabsTrigger>
-                      <TabsTrigger value="custom">Custom Amount</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
                 </div>
 
-                {selectedMembers.length > 0 && splitMode !== "equal" && (
+                {/* Payment and Split Configuration */}
+                <div className="space-y-4 rounded-lg border p-4">
                   <div>
-                    <Label>Split Details</Label>
-                    <div className="mt-2 space-y-2">
-                      {[user?.id, ...selectedMembers].map((userId) => {
-                        if (!userId) return null;
-                        const split = splits.find((s) => s.userId === userId);
-                        const displayName =
-                          userId === user?.id
-                            ? "You"
-                            : getMemberDisplayName(userId);
+                    <Label>
+                      {expense?.groupId
+                        ? "Group Members"
+                        : "Select Friends to Share With"}
+                    </Label>
+                    <div className="mt-2 max-h-32 space-y-2 overflow-y-auto">
+                      {expense?.groupId ? (
+                        // Group member selection
+                        groupDetails?.members &&
+                        groupDetails.members.length > 0 ? (
+                          groupDetails.members
+                            .filter((member) => member.userId !== user?.id) // Exclude current user
+                            .map((member) => {
+                              const memberId = member.userId;
+                              const memberName = getMemberDisplayName(memberId);
 
-                        return (
-                          <div key={userId} className="flex items-center gap-2">
-                            <span className="min-w-[80px] text-sm font-medium">
-                              {displayName}:
-                            </span>
-                            {splitMode === "percentage" ? (
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="0.1"
-                                  value={split?.percentage ?? ""}
-                                  onChange={(e) =>
-                                    updateSplitPercentage(
-                                      userId,
-                                      parseFloat(e.target.value) ?? 0,
-                                    )
-                                  }
-                                  className="border-input bg-background w-20 rounded border px-2 py-1 text-sm"
-                                  placeholder="0"
-                                />
-                                <span className="text-sm">%</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1">
-                                <span className="text-sm">{currency}</span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={split?.amount ?? ""}
-                                  onChange={(e) =>
-                                    updateSplitAmount(userId, e.target.value)
-                                  }
-                                  className="border-input bg-background w-24 rounded border px-2 py-1 text-sm"
-                                  placeholder="0.00"
-                                />
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {selectedMembers.length > 0 && splitMode === "equal" && (
-                  <div>
-                    <Label>Equal Split Preview</Label>
-                    <div className="text-muted-foreground mt-2 text-sm">
-                      Each person pays: {currency}{" "}
-                      {amount
-                        ? (
-                            parseFloat(amount) /
-                            (selectedMembers.length + 1)
-                          ).toFixed(2)
-                        : "0.00"}
-                      <div className="mt-1">
-                        <Badge variant="secondary">
-                          You + {selectedMembers.length}{" "}
-                          {expense?.groupId ? "member" : "friend"}
-                          {selectedMembers.length !== 1 ? "s" : ""}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <Label htmlFor="edit-reason">Reason for Edit</Label>
-                <Textarea
-                  id="edit-reason"
-                  placeholder="Optional: Explain why you're making this change..."
-                  value={editReason}
-                  onChange={(e) => setEditReason(e.target.value)}
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  type="submit"
-                  disabled={updateExpense.isPending}
-                  className="flex-1"
-                >
-                  {updateExpense.isPending ? "Updating..." : "Update Expense"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setOpen(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </div>
-
-          {/* History & Comments Sidebar */}
-          <div className="overflow-y-auto border-l pl-6">
-            <div className="space-y-6">
-              {/* Edit History */}
-              <div>
-                <h3 className="mb-3 text-lg font-semibold">Edit History</h3>
-                <ScrollArea className="h-64 w-full rounded-md border p-3">
-                  <div className="space-y-3">
-                    {expense.history?.map((historyItem) => (
-                      <div key={historyItem.id} className="text-sm">
-                        <div className="mb-1 flex items-center gap-2">
-                          <Badge
-                            variant={
-                              historyItem.changeType === "created"
-                                ? "default"
-                                : historyItem.changeType === "updated"
-                                  ? "secondary"
-                                  : "destructive"
-                            }
-                          >
-                            {historyItem.changeType}
-                          </Badge>
-                          <span className="text-muted-foreground text-xs">
-                            {formatRelativeTime(historyItem.createdAt)}
-                          </span>
-                        </div>
-                        <p className="text-muted-foreground mb-1 text-xs">
-                          By: {getUserDisplayName(historyItem.editedBy)}
-                        </p>
-                        {historyItem.editReason && (
-                          <p className="mb-2 text-xs italic">
-                            &quot;{historyItem.editReason}&quot;
-                          </p>
-                        )}
-                        {historyItem.changes &&
-                        typeof historyItem.changes === "object" &&
-                        historyItem.changes !== null ? (
-                          <div className="space-y-1 text-xs">
-                            {Object.entries(
-                              historyItem.changes as Record<
-                                string,
-                                { before: unknown; after: unknown }
-                              >,
-                            )
-                              .map(([field, change]) => describeExpenseChange(field, change.before, change.after, getUserDisplayName))
-                              .filter((description): description is string => description !== null) // Only show actual differences
-                              .map((description, index) => (
-                                <div key={index} className="bg-muted rounded p-2 text-sm">
-                                  {description}
+                              return (
+                                <div
+                                  key={member.id}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`member-${memberId}`}
+                                    checked={selectedMembers.includes(memberId)}
+                                    onCheckedChange={() =>
+                                      handleMemberToggle(memberId)
+                                    }
+                                  />
+                                  <Label
+                                    htmlFor={`member-${memberId}`}
+                                    className="text-sm"
+                                  >
+                                    {memberName}
+                                  </Label>
                                 </div>
-                              ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
+                              );
+                            })
+                        ) : (
+                          <p className="text-muted-foreground text-sm">
+                            No other group members available.
+                          </p>
+                        )
+                      ) : // Friend selection for personal expenses
+                      friends && friends.length > 0 ? (
+                        friends.map((friendship) => {
+                          const friendId = friendship.friendId;
+                          const friendName = friendship.friendName;
+
+                          return (
+                            <div
+                              key={friendship.id}
+                              className="flex items-center space-x-2"
+                            >
+                              <Checkbox
+                                id={`friend-${friendId}`}
+                                checked={selectedMembers.includes(friendId)}
+                                onCheckedChange={() =>
+                                  handleMemberToggle(friendId)
+                                }
+                              />
+                              <Label
+                                htmlFor={`friend-${friendId}`}
+                                className="text-sm"
+                              >
+                                {friendName}
+                              </Label>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-muted-foreground text-sm">
+                          No friends available. Add friends first!
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </ScrollArea>
-              </div>
 
-              <Separator />
+                  {/* Payment Configuration */}
+                  <div>
+                    <Label>Payment Mode</Label>
+                    <Tabs
+                      value={paymentMode}
+                      onValueChange={(value) =>
+                        setPaymentMode(value as typeof paymentMode)
+                      }
+                      className="mt-2"
+                    >
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="single">Single Payer</TabsTrigger>
+                        <TabsTrigger value="percentage">Percentage</TabsTrigger>
+                        <TabsTrigger value="custom">Custom Amount</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
 
-              {/* Comments */}
-              <div>
-                <h3 className="mb-3 text-lg font-semibold">Comments</h3>
+                  {paymentMode === "single" && (
+                    <div>
+                      <Label>Who Paid? *</Label>
+                      <Popover open={paidByOpen} onOpenChange={setPaidByOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={paidByOpen}
+                            className="mt-2 w-full justify-between"
+                          >
+                            {paidBy
+                              ? paidBy === user?.id
+                                ? "You"
+                                : getMemberDisplayName(paidBy)
+                              : "Select who paid..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0">
+                          <Command>
+                            <CommandInput placeholder="Search participants..." />
+                            <CommandList>
+                              <CommandEmpty>
+                                No participants found.
+                              </CommandEmpty>
+                              <CommandGroup>
+                                {/* Current user option */}
+                                <CommandItem
+                                  value={user?.id}
+                                  onSelect={() => {
+                                    setPaidBy(user?.id ?? "");
+                                    setPaidByOpen(false);
+                                  }}
+                                >
+                                  You
+                                  <Check
+                                    className={cn(
+                                      "ml-auto h-4 w-4",
+                                      paidBy === user?.id
+                                        ? "opacity-100"
+                                        : "opacity-0",
+                                    )}
+                                  />
+                                </CommandItem>
+                                {/* Selected members options */}
+                                {selectedMembers.map((memberId) => {
+                                  const memberName =
+                                    getMemberDisplayName(memberId);
+                                  return (
+                                    <CommandItem
+                                      key={memberId}
+                                      value={memberId}
+                                      onSelect={() => {
+                                        setPaidBy(memberId);
+                                        setPaidByOpen(false);
+                                      }}
+                                    >
+                                      {memberName}
+                                      <Check
+                                        className={cn(
+                                          "ml-auto h-4 w-4",
+                                          paidBy === memberId
+                                            ? "opacity-100"
+                                            : "opacity-0",
+                                        )}
+                                      />
+                                    </CommandItem>
+                                  );
+                                })}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
 
-                {/* Add Comment */}
-                <div className="mb-4 space-y-2">
-                  <Textarea
-                    placeholder="Add a comment..."
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    className="min-h-[80px]"
-                  />
+                  {selectedMembers.length > 0 && paymentMode !== "single" && (
+                    <div>
+                      <Label>Payment Details</Label>
+                      <div className="mt-2 space-y-2">
+                        {[user?.id, ...selectedMembers].map((userId) => {
+                          if (!userId) return null;
+                          const payment = payments.find(
+                            (p) => p.userId === userId,
+                          );
+                          const displayName =
+                            userId === user?.id
+                              ? "You"
+                              : getMemberDisplayName(userId);
+
+                          return (
+                            <div
+                              key={userId}
+                              className="flex items-center gap-2"
+                            >
+                              <span className="min-w-[80px] text-sm font-medium">
+                                {displayName}:
+                              </span>
+                              {paymentMode === "percentage" ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.1"
+                                    value={payment?.percentage ?? ""}
+                                    onChange={(e) => {
+                                      const newPercentage =
+                                        parseFloat(e.target.value) || 0;
+                                      setPayments((prev) => {
+                                        const existing = prev.find(
+                                          (p) => p.userId === userId,
+                                        );
+                                        if (existing) {
+                                          return prev.map((p) =>
+                                            p.userId === userId
+                                              ? {
+                                                  ...p,
+                                                  percentage: newPercentage,
+                                                }
+                                              : p,
+                                          );
+                                        } else {
+                                          return [
+                                            ...prev,
+                                            {
+                                              userId,
+                                              percentage: newPercentage,
+                                            },
+                                          ];
+                                        }
+                                      });
+                                    }}
+                                    className="border-input bg-background w-20 rounded border px-2 py-1 text-sm"
+                                    placeholder="0"
+                                  />
+                                  <span className="text-sm">%</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-sm">{currency}</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={payment?.amount ?? ""}
+                                    onChange={(e) => {
+                                      const newAmount = e.target.value;
+                                      setPayments((prev) => {
+                                        const existing = prev.find(
+                                          (p) => p.userId === userId,
+                                        );
+                                        if (existing) {
+                                          return prev.map((p) =>
+                                            p.userId === userId
+                                              ? { ...p, amount: newAmount }
+                                              : p,
+                                          );
+                                        } else {
+                                          return [
+                                            ...prev,
+                                            { userId, amount: newAmount },
+                                          ];
+                                        }
+                                      });
+                                    }}
+                                    className="border-input bg-background w-24 rounded border px-2 py-1 text-sm"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label>Split Mode</Label>
+                    <Tabs
+                      value={splitMode}
+                      onValueChange={(value) =>
+                        setSplitMode(value as typeof splitMode)
+                      }
+                      className="mt-2"
+                    >
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="equal">Equal Split</TabsTrigger>
+                        <TabsTrigger value="percentage">Percentage</TabsTrigger>
+                        <TabsTrigger value="custom">Custom Amount</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+
+                  {selectedMembers.length > 0 && splitMode !== "equal" && (
+                    <div>
+                      <Label>Split Details</Label>
+                      <div className="mt-2 space-y-2">
+                        {[user?.id, ...selectedMembers].map((userId) => {
+                          if (!userId) return null;
+                          const split = splits.find((s) => s.userId === userId);
+                          const displayName =
+                            userId === user?.id
+                              ? "You"
+                              : getMemberDisplayName(userId);
+
+                          return (
+                            <div
+                              key={userId}
+                              className="flex items-center gap-2"
+                            >
+                              <span className="min-w-[80px] text-sm font-medium">
+                                {displayName}:
+                              </span>
+                              {splitMode === "percentage" ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.1"
+                                    value={split?.percentage ?? ""}
+                                    onChange={(e) =>
+                                      updateSplitPercentage(
+                                        userId,
+                                        parseFloat(e.target.value) ?? 0,
+                                      )
+                                    }
+                                    className="border-input bg-background w-20 rounded border px-2 py-1 text-sm"
+                                    placeholder="0"
+                                  />
+                                  <span className="text-sm">%</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-sm">{currency}</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={split?.amount ?? ""}
+                                    onChange={(e) =>
+                                      updateSplitAmount(userId, e.target.value)
+                                    }
+                                    className="border-input bg-background w-24 rounded border px-2 py-1 text-sm"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedMembers.length > 0 && splitMode === "equal" && (
+                    <div>
+                      <Label>Equal Split Preview</Label>
+                      <div className="text-muted-foreground mt-2 text-sm">
+                        Each person pays: {currency}{" "}
+                        {amount
+                          ? (
+                              parseFloat(amount) /
+                              (selectedMembers.length + 1)
+                            ).toFixed(2)
+                          : "0.00"}
+                        <div className="mt-1">
+                          <Badge variant="secondary">
+                            You + {selectedMembers.length}{" "}
+                            {expense?.groupId ? "member" : "friend"}
+                            {selectedMembers.length !== 1 ? "s" : ""}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
                   <Button
-                    onClick={handleAddComment}
-                    disabled={addComment.isPending || !newComment.trim()}
-                    size="sm"
+                    type="submit"
+                    disabled={updateExpense.isPending}
+                    className="flex-1"
                   >
-                    {addComment.isPending ? "Adding..." : "Add Comment"}
+                    {updateExpense.isPending ? "Updating..." : "Update Expense"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setOpen(false)}
+                  >
+                    Cancel
                   </Button>
                 </div>
+              </form>
+            </div>
 
-                {/* Comments List */}
-                <ScrollArea className="h-64 w-full rounded-md border p-3">
-                  <div className="space-y-3">
-                    {expense.comments?.map((comment) => (
-                      <div key={comment.id} className="text-sm">
-                        <div className="mb-1 flex items-center gap-2">
-                          <span className="font-medium">
-                            {getUserDisplayName(comment.userId)}
-                          </span>
-                          <span className="text-muted-foreground text-xs">
-                            {formatRelativeTime(comment.createdAt)}
-                          </span>
+            {/* History & Comments Sidebar */}
+            <div className="overflow-y-auto border-l pl-6">
+              <div className="space-y-6">
+                {/* Edit History */}
+                <div>
+                  <h3 className="mb-3 text-lg font-semibold">Edit History</h3>
+                  <ScrollArea className="h-64 w-full rounded-md border p-3">
+                    <div className="space-y-3">
+                      {expense.history?.map((historyItem) => (
+                        <div key={historyItem.id} className="text-sm">
+                          <div className="mb-1 flex items-center gap-2">
+                            <Badge
+                              variant={
+                                historyItem.changeType === "created"
+                                  ? "default"
+                                  : historyItem.changeType === "updated"
+                                    ? "secondary"
+                                    : "destructive"
+                              }
+                            >
+                              {historyItem.changeType}
+                            </Badge>
+                            <span className="text-muted-foreground text-xs">
+                              {formatRelativeTime(historyItem.createdAt)}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground mb-1 text-xs">
+                            By: {getUserDisplayName(historyItem.editedBy)}
+                          </p>
+                          {historyItem.changes &&
+                          typeof historyItem.changes === "object" &&
+                          historyItem.changes !== null ? (
+                            <div className="space-y-1 text-xs">
+                              {Object.entries(
+                                historyItem.changes as Record<
+                                  string,
+                                  { before: unknown; after: unknown }
+                                >,
+                              )
+                                .map(([field, change]) =>
+                                  describeExpenseChange(
+                                    field,
+                                    change.before,
+                                    change.after,
+                                    getUserDisplayName,
+                                  ),
+                                )
+                                .filter(
+                                  (description): description is string =>
+                                    description !== null,
+                                ) // Only show actual differences
+                                .map((description, index) => (
+                                  <div
+                                    key={index}
+                                    className="bg-muted rounded p-2 text-sm"
+                                  >
+                                    {description}
+                                  </div>
+                                ))}
+                            </div>
+                          ) : null}
                         </div>
-                        <p className="bg-muted rounded p-2 text-sm">
-                          {comment.comment}
-                        </p>
-                      </div>
-                    ))}
-                    {(!expense.comments || expense.comments.length === 0) && (
-                      <p className="text-muted-foreground text-center text-sm">
-                        No comments yet.
-                      </p>
-                    )}
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+
+                <Separator />
+
+                {/* Comments */}
+                <div>
+                  <h3 className="mb-3 text-lg font-semibold">Comments</h3>
+
+                  {/* Add Comment */}
+                  <div className="mb-4 space-y-2">
+                    <Textarea
+                      placeholder="Add a comment..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      className="min-h-[80px]"
+                    />
+                    <Button
+                      onClick={handleAddComment}
+                      disabled={addComment.isPending || !newComment.trim()}
+                      size="sm"
+                    >
+                      {addComment.isPending ? "Adding..." : "Add Comment"}
+                    </Button>
                   </div>
-                </ScrollArea>
+
+                  {/* Comments List */}
+                  <ScrollArea className="h-64 w-full rounded-md border p-3">
+                    <div className="space-y-3">
+                      {expense.comments?.map((comment) => (
+                        <div key={comment.id} className="text-sm">
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className="font-medium">
+                              {getUserDisplayName(comment.userId)}
+                            </span>
+                            <span className="text-muted-foreground text-xs">
+                              {formatRelativeTime(comment.createdAt)}
+                            </span>
+                          </div>
+                          <p className="bg-muted rounded p-2 text-sm">
+                            {comment.comment}
+                          </p>
+                        </div>
+                      ))}
+                      {(!expense.comments || expense.comments.length === 0) && (
+                        <p className="text-muted-foreground text-center text-sm">
+                          No comments yet.
+                        </p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
               </div>
             </div>
           </div>
-        </div>
         )}
       </DialogContent>
     </Dialog>

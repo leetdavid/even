@@ -8,6 +8,7 @@ import {
   expensePayments,
   expenseHistory,
   expenseComments,
+  groups,
 } from "@/server/db/schema";
 
 const createExpenseSchema = z
@@ -206,7 +207,6 @@ export const expenseRouter = createTRPCRouter({
         category: z.string().optional(),
         description: z.string().optional(),
         date: z.string().optional(),
-        editReason: z.string().optional(),
         editedBy: z.string(),
         groupId: z.number().optional(),
         splitMode: z.enum(["equal", "percentage", "custom"]).optional(),
@@ -421,7 +421,6 @@ export const expenseRouter = createTRPCRouter({
           editedBy: input.editedBy,
           changeType: "updated",
           changes,
-          editReason: input.editReason,
         });
       }
 
@@ -476,6 +475,30 @@ export const expenseRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       return await ctx.db.query.expenses.findMany({
         where: eq(expenses.groupId, input.groupId),
+        orderBy: [desc(expenses.date)],
+        with: {
+          splits: true,
+          payments: true,
+          history: true,
+          comments: true,
+        },
+      });
+    }),
+
+  getGroupExpensesByUuid: publicProcedure
+    .input(z.object({ groupUuid: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      // First get the group by UUID
+      const group = await ctx.db.query.groups.findFirst({
+        where: eq(groups.uuid, input.groupUuid),
+      });
+
+      if (!group) {
+        throw new Error("Group not found");
+      }
+
+      return await ctx.db.query.expenses.findMany({
+        where: eq(expenses.groupId, group.id),
         orderBy: [desc(expenses.date)],
         with: {
           splits: true,

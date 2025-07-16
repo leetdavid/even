@@ -279,10 +279,10 @@ export function GroupsSidebar({
                     onClick={() => onGroupSelect(group.id)}
                   >
                     <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <CardTitle className="flex items-center gap-2 text-sm">
-                          <Users size={16} />
-                          {group.name}
+                          <Users size={16} className="flex-shrink-0" />
+                          <span className="text-ellipsis">{group.name}</span>
                         </CardTitle>
                         <div className="flex items-center gap-1">
                           <Badge

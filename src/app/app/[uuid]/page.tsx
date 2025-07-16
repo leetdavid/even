@@ -7,6 +7,7 @@ import {
   RedirectToSignIn,
   UserButton,
 } from "@clerk/nextjs";
+import { useParams, useRouter } from "next/navigation";
 
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
@@ -17,8 +18,9 @@ import { ExpenseEditModal } from "@/components/expense-edit-modal";
 import { FriendsModal } from "@/components/friends-modal";
 import { UserSettingsModal } from "@/components/user-settings-modal";
 import { GroupsSidebar } from "@/components/groups-sidebar";
+import { GroupSettingsModal } from "@/components/group-settings-modal";
 import { ModeToggle } from "@/components/theme-toggle";
-import { Plus, Users, UserPlus, Settings } from "lucide-react";
+import { Plus, Users, Settings, ArrowLeft } from "lucide-react";
 
 interface ExpenseItemProps {
   expense: {
@@ -86,18 +88,24 @@ function ExpenseItem({ expense }: ExpenseItemProps) {
   );
 }
 
-export default function AppPage() {
+export default function GroupPage() {
   const { user } = useUser();
+  const params = useParams();
+  const router = useRouter();
+  const groupUuid = params.uuid as string;
 
-  const { data: expenses = [] } = api.expense.getAll.useQuery(
+  const { data: userGroups = [], isLoading: isLoadingGroups } = api.groups.getUserGroups.useQuery(
     { userId: user?.id ?? "" },
     { enabled: !!user?.id },
   );
 
-  const { data: userGroups = [] } = api.groups.getUserGroups.useQuery(
-    { userId: user?.id ?? "" },
-    { enabled: !!user?.id },
-  );
+  const selectedGroup = userGroups.find((group) => group.uuid === groupUuid);
+
+  const { data: groupExpenses = [] } =
+    api.expense.getGroupExpensesByUuid.useQuery(
+      { groupUuid: groupUuid },
+      { enabled: !!selectedGroup },
+    );
 
   const { data: friendRequests = [] } = api.friends.getFriendRequests.useQuery(
     {
@@ -107,31 +115,86 @@ export default function AppPage() {
     { enabled: !!user?.id },
   );
 
-  const totalExpenses = expenses.reduce(
+  const totalExpenses = groupExpenses.reduce(
     (sum, expense) => sum + parseFloat(expense.amount),
     0,
   );
+
+  const handleGroupSelect = (groupId: number | null) => {
+    if (groupId === null) {
+      router.push("/app");
+    } else {
+      const group = userGroups.find((g) => g.id === groupId);
+      if (group) {
+        router.push(`/app/${group.uuid}`);
+      }
+    }
+  };
+
+  // Show loading state while fetching groups
+  if (isLoadingGroups) {
+    return (
+      <SignedIn>
+        <div className="flex h-screen">
+          <GroupsSidebar
+            selectedGroupId={null}
+            onGroupSelect={handleGroupSelect}
+          />
+          <div className="flex-1 overflow-auto">
+            <div className="container mx-auto space-y-6 p-6">
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading group...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </SignedIn>
+    );
+  }
+
+  // Only show "not found" after loading is complete
+  if (!isLoadingGroups && !selectedGroup) {
+    return (
+      <SignedIn>
+        <div className="flex h-screen items-center justify-center">
+          <Card className="w-96">
+            <CardContent className="pt-6">
+              <p className="text-muted-foreground text-center">
+                Group not found
+              </p>
+              <Button
+                className="mt-4 w-full"
+                onClick={() => router.push("/app")}
+              >
+                <ArrowLeft size={16} className="mr-2" />
+                Back to All Expenses
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </SignedIn>
+    );
+  }
+
+  // At this point, selectedGroup is guaranteed to exist
+  const group = selectedGroup!;
 
   return (
     <>
       <SignedIn>
         <div className="flex h-screen">
           <GroupsSidebar
-            selectedGroupId={null}
-            onGroupSelect={(groupId) => {
-              if (groupId) {
-                const group = userGroups.find((g) => g.id === groupId);
-                if (group) {
-                  window.location.href = `/app/${group.uuid}`;
-                }
-              }
-            }}
+            selectedGroupId={group.id}
+            onGroupSelect={handleGroupSelect}
           />
           <div className="flex-1 overflow-auto">
             <div className="container mx-auto space-y-6 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-3xl font-bold">Even</h1>
+                  <h1 className="text-3xl font-bold">{group.name}</h1>
                 </div>
                 <div className="flex items-center gap-4">
                   <ModeToggle />
@@ -149,7 +212,7 @@ export default function AppPage() {
                       )}
                     </Button>
                   </FriendsModal>
-                  <ExpenseModal>
+                  <ExpenseModal groupId={group.id}>
                     <Button className="gap-2">
                       <Plus size={16} />
                       Add Expense
@@ -174,63 +237,36 @@ export default function AppPage() {
                 </div>
               </div>
 
-              {/* Pending Requests */}
-              {friendRequests.length > 0 && (
-                <div className="grid grid-cols-1 gap-4">
-                  {friendRequests.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <UserPlus size={20} />
-                          Pending Requests ({friendRequests.length})
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {friendRequests.slice(0, 3).map((request) => (
-                            <FriendsModal
-                              key={request.id}
-                              initialTab="invitations"
-                            >
-                              <div className="flex cursor-pointer items-center gap-2 rounded-md p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
-                                <div className="h-2 w-2 rounded-full bg-orange-500"></div>
-                                <div className="flex-1">
-                                  <span className="text-sm font-medium">
-                                    {request.senderName ?? request.userId}
-                                  </span>
-                                  <p className="text-muted-foreground text-xs">
-                                    {request.senderEmail ?? "Unknown email"}
-                                  </p>
-                                </div>
-                              </div>
-                            </FriendsModal>
-                          ))}
-                          {friendRequests.length > 3 && (
-                            <p className="text-muted-foreground mt-2 text-xs">
-                              +{friendRequests.length - 3} more requests
-                            </p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              )}
-
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between gap-4">
-                    <CardTitle>Recent Expenses</CardTitle>
+                    <CardTitle className="flex-1 text-ellipsis">
+                      <span className="block truncate">Group Expenses</span>
+                    </CardTitle>
+                    <div className="flex flex-0 items-center gap-2">
+                      <ExpenseModal groupId={group.id}>
+                        <Button size="sm" variant="outline" className="gap-1">
+                          <Plus size={16} />
+                          Add Expense
+                        </Button>
+                      </ExpenseModal>
+                      <GroupSettingsModal group={group}>
+                        <Button size="sm" variant="outline" className="gap-1">
+                          <Settings size={16} />
+                          Settings
+                        </Button>
+                      </GroupSettingsModal>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {expenses.length === 0 ? (
+                    {groupExpenses.length === 0 ? (
                       <p className="text-muted-foreground py-8 text-center">
-                        No expenses yet. Add your first expense!
+                        No expenses in this group yet.
                       </p>
                     ) : (
-                      expenses
+                      groupExpenses
                         .slice(0, 10)
                         .map((expense) => (
                           <ExpenseItem key={expense.id} expense={expense} />

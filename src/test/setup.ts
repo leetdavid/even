@@ -1,9 +1,9 @@
-import '@testing-library/jest-dom'
-import { vi } from 'vitest'
-import type React from 'react'
+import "@testing-library/jest-dom";
+import { vi } from "vitest";
+import type React from "react";
 
 // Mock Next.js router
-vi.mock('next/navigation', () => ({
+vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
     replace: vi.fn(),
@@ -12,17 +12,17 @@ vi.mock('next/navigation', () => ({
     refresh: vi.fn(),
     prefetch: vi.fn(),
   }),
-  usePathname: () => '/app',
+  usePathname: () => "/app",
   useSearchParams: () => new URLSearchParams(),
-}))
+}));
 
 // Mock Clerk
-vi.mock('@clerk/nextjs', () => ({
+vi.mock("@clerk/nextjs", () => ({
   useUser: () => ({
     user: {
-      id: 'test-user-id',
+      id: "test-user-id",
       primaryEmailAddress: {
-        emailAddress: 'test@example.com',
+        emailAddress: "test@example.com",
       },
     },
     isLoaded: true,
@@ -32,10 +32,10 @@ vi.mock('@clerk/nextjs', () => ({
   SignedOut: () => null,
   RedirectToSignIn: () => null,
   UserButton: () => null,
-}))
+}));
 
 // Mock tRPC
-vi.mock('@/trpc/react', () => ({
+vi.mock("@/trpc/react", () => ({
   api: {
     useUtils: () => ({
       expense: {
@@ -91,14 +91,14 @@ vi.mock('@/trpc/react', () => ({
       },
     },
   },
-}))
+}));
 
 // Mock sonner toast
-vi.mock('sonner', () => ({
+vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
     info: vi.fn(),
     warning: vi.fn(),
   },
-}))
+}));
